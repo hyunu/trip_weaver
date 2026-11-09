@@ -16,8 +16,6 @@ void main() {
     final store = FileTripStore(File('${directory.path}/trips.json'));
     final first = TripController(catalog: catalog, store: store);
     first.selectTrip('trip-river');
-    first.setDecision('wharf', Decision.excluded);
-    first.toggleSaved('wharf');
     final error = first.createTrip(
       TripDraft(
         title: '직접 만든 여행',
@@ -35,8 +33,6 @@ void main() {
       ),
     );
     expect(error, isNull);
-    first.setDecision('park', Decision.excluded);
-    first.toggleSaved('park');
     await first.persistenceSettled;
 
     final reloaded = TripController(catalog: catalog, store: store);
@@ -54,9 +50,6 @@ void main() {
 
     final sample = reloaded.trips.singleWhere((trip) => trip.id == 'trip-river');
     expect(sample.dataOriginMock, isTrue);
-    expect(sample.pendingLocalEdits, greaterThan(2));
-    expect(sample.links['wharf']!.decision, Decision.excluded);
-    expect(sample.links['wharf']!.saved, isTrue);
     expect(sample.activeDays, isNotEmpty);
     expect(sample.proposalDays, isNotNull);
     expect(sample.cities.first.coordinateLabel, '31.2304, 121.4737');
@@ -125,7 +118,7 @@ void main() {
     first.deleteItem(item.id);
     await first.persistenceSettled;
     final encoded = await File('${directory.path}/trips.json').readAsString();
-    expect(encoded, contains('"version":2'));
+    expect(encoded, contains('"version":3'));
     expect(encoded, contains('낮에 외탄을 걸었다.'));
 
     final reloaded = TripController(catalog: catalog, store: store);

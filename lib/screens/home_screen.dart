@@ -18,7 +18,9 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
-    if (controller.trips.isEmpty) {
+    final mine = controller.userTrips;
+    final samples = controller.sampleTrips;
+    if (mine.isEmpty && samples.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: FillOrScroll(
@@ -31,10 +33,6 @@ class HomeScreen extends StatelessWidget {
         ),
       );
     }
-    final ongoing = controller.trips.where((trip) => isOngoing(trip, controller.now)).toList();
-    final upcoming = controller.trips.where((trip) => !isOngoing(trip, controller.now) && !isPast(trip, controller.now)).toList();
-    final nextTrip = ongoing.isEmpty ? nearestUpcomingTrip(controller.trips, controller.now) : null;
-    final past = controller.trips.where((trip) => isPast(trip, controller.now)).toList();
     return ScrollHost(
       id: 'home',
       builder: (context, scroll) {
@@ -51,25 +49,50 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             StatusBanners(sample: controller.homeShowsSample, offline: controller.offline),
-            if (nextTrip != null) _NextTripCountdownCard(trip: nextTrip, tablet: tablet),
-            if (ongoing.isNotEmpty) ...[
-              const SectionLabel('진행 중'),
-              _HeroCard(trip: ongoing.first, tablet: tablet),
-              for (final trip in ongoing.skip(1)) _TripCard(trip: trip, tablet: tablet),
-            ],
-            if (upcoming.isNotEmpty) ...[
-              const SectionLabel('예정'),
-              for (final trip in upcoming) _TripCard(trip: trip, tablet: tablet),
-            ],
-            if (past.isNotEmpty) ...[
-              const SectionLabel('지난 여행'),
-              for (final trip in past) _TripCard(trip: trip, tablet: tablet),
+            if (mine.isNotEmpty) ..._TripSections(trips: mine, tablet: tablet, now: controller.now),
+            if (samples.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Expanded(child: SectionLabel('샘플 여행')),
+                  TextButton(
+                    key: const Key('hide-all-samples'),
+                    onPressed: controller.hideAllSamples,
+                    child: const Text('샘플 모두 숨기기'),
+                  ),
+                ],
+              ),
+              Text('데모용입니다. 내 여행과 별도로 보여 주며 저장 파일에는 남지 않습니다.', style: AppType.footnote.copyWith(color: AppColors.secondary)),
+              const SizedBox(height: AppSpace.xs),
+              ..._TripSections(trips: samples, tablet: tablet, now: controller.now, sampleStyle: true),
             ],
           ],
         );
       },
     );
   }
+}
+
+List<Widget> _TripSections({required List<Trip> trips, required bool tablet, required DateTime now, bool sampleStyle = false}) {
+  final ongoing = trips.where((trip) => isOngoing(trip, now)).toList();
+  final upcoming = trips.where((trip) => !isOngoing(trip, now) && !isPast(trip, now)).toList();
+  final nextTrip = ongoing.isEmpty && !sampleStyle ? nearestUpcomingTrip(trips, now) : null;
+  final past = trips.where((trip) => isPast(trip, now)).toList();
+  return [
+    if (nextTrip != null) _NextTripCountdownCard(trip: nextTrip, tablet: tablet),
+    if (ongoing.isNotEmpty) ...[
+      const SectionLabel('진행 중'),
+      _HeroCard(trip: ongoing.first, tablet: tablet),
+      for (final trip in ongoing.skip(1)) _TripCard(trip: trip, tablet: tablet),
+    ],
+    if (upcoming.isNotEmpty) ...[
+      const SectionLabel('예정'),
+      for (final trip in upcoming) _TripCard(trip: trip, tablet: tablet),
+    ],
+    if (past.isNotEmpty) ...[
+      const SectionLabel('지난 여행'),
+      for (final trip in past) _TripCard(trip: trip, tablet: tablet),
+    ],
+  ];
 }
 
 class _NextTripCountdownCard extends StatelessWidget {

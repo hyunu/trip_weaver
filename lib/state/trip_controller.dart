@@ -27,30 +27,33 @@ class TripController extends ChangeNotifier {
   @visibleForTesting
   static DateTime? debugFixedNow;
 
-  TripController({DateTime? now, SampleCatalog? catalog, TripStore? store, CityGeocoder? geocoder})
+  TripController({DateTime? now, SampleCatalog? catalog, TripStore? store, CityGeocoder? geocoder, bool? preloadSamples})
     : _explicitNow = now,
       _store = store,
+      _bundledCatalog = catalog ?? buildSampleCatalog(),
       geocoder = geocoder ?? OfflineSampleGeocoder() {
     _now = _readNow();
-    final seed = catalog ?? buildSampleCatalog();
-    trips = seed.trips;
-    places = List<Place>.of(seed.places);
-    _samplePlaceIds = {for (final place in seed.places) place.id};
-    _sampleTripIds = {
-      for (final trip in seed.trips)
-        if (trip.dataOriginMock) trip.id
-    };
-    currentTripId = seed.currentTripId;
-    selectedDate = dateOnly(this.now);
-    journalDate = dateOnly(this.now);
-    final trip = current;
-    if (trip != null && trip.cities.isNotEmpty) {
-      selectedCityId = trip.cities.firstWhere((city) => city.coordinateConfirmed, orElse: () => trip.cities.first).id;
+  _seedSampleIds(_bundledCatalog);
+    final loadSamples = preloadSamples ?? (store == null || catalog != null);
+    if (loadSamples) {
+      _installBundledCatalog(_bundledCatalog, markActive: true);
+    } else {
+      trips = [];
+      places = [];
+      currentTripId = null;
+      onboardingComplete = false;
+      bundledSamplesActive = false;
+      selectedDate = dateOnly(this.now);
+      journalDate = dateOnly(this.now);
+      selectedCityId = null;
     }
   }
 
   final DateTime? _explicitNow;
+  final SampleCatalog _bundledCatalog;
   late DateTime _now;
+  bool onboardingComplete = true;
+  bool bundledSamplesActive = false;
 
   bool get fixedClock => _explicitNow != null || debugFixedNow != null;
 
@@ -126,14 +129,57 @@ class TripController extends ChangeNotifier {
     if (store == null) return;
     try {
       final snapshot = await store.read();
-      if (snapshot == null) return;
-      _applySnapshot(snapshot);
+      if (snapshot == null) {
+        onboardingComplete = false;
+        bundledSamplesActive = false;
+        trips = [];
+        places = [];
+        currentTripId = null;
+        selectedCityId = null;
+      } else {
+        _applySnapshot(snapshot);
+      }
     } on TripStoreCorruptException catch (_) {
       restoreNotice = '저장 파일을 읽지 못해 백업해 두었습니다. 샘플 데이터로 다시 시작합니다.';
+      _installBundledCatalog(_bundledCatalog, markActive: true);
+      onboardingComplete = true;
     } on Object {
       // Unreadable store; keep bundled sample trips.
     }
     super.notifyListeners();
+  }
+
+  void _seedSampleIds(SampleCatalog seed) {
+    _samplePlaceIds = {for (final place in seed.places) place.id};
+    _sampleTripIds = {
+      for (final trip in seed.trips)
+        if (trip.dataOriginMock) trip.id
+    };
+  }
+
+  void _installBundledCatalog(SampleCatalog seed, {required bool markActive}) {
+    trips = List<Trip>.of(seed.trips);
+    places = List<Place>.of(seed.places);
+    currentTripId = seed.currentTripId;
+    bundledSamplesActive = markActive;
+    selectedDate = dateOnly(now);
+    journalDate = dateOnly(now);
+    final trip = current;
+    if (trip != null && trip.cities.isNotEmpty) {
+      selectedCityId = trip.cities.firstWhere((city) => city.coordinateConfirmed, orElse: () => trip.cities.first).id;
+    } else {
+      selectedCityId = null;
+    }
+  }
+
+  void _ensureBundledSamplesPresent() {
+    final existing = trips.map((trip) => trip.id).toSet();
+  final missing = _bundledCatalog.trips.where((trip) => trip.dataOriginMock && !existing.contains(trip.id)).toList();
+    if (missing.isEmpty) return;
+    trips = [...trips, ...missing];
+    for (final place in _bundledCatalog.places) {
+      if (places.every((item) => item.id != place.id)) places.add(place);
+    }
   }
 
   void _applySnapshot(TripSnapshot snapshot) {
@@ -142,12 +188,15 @@ class TripController extends ChangeNotifier {
     }
     trips = snapshot.trips;
     currentTripId = snapshot.currentTripId;
+    onboardingComplete = snapshot.onboardingComplete;
+    bundledSamplesActive = snapshot.bundledSamplesActive;
     if (snapshot.nextSeq > _seq) _seq = snapshot.nextSeq;
     journal.replaceAll(snapshot.journal);
     _proposalExclusions
       ..clear()
       ..addAll(snapshot.exclusions);
     mergeUserPlaces(snapshot.userPlaces);
+    if (bundledSamplesActive) _ensureBundledSamplesPresent();
     final trip = current;
     if (trip == null || trip.cities.isEmpty) {
       selectedCityId = null;
@@ -156,14 +205,64 @@ class TripController extends ChangeNotifier {
     }
   }
 
+  String? _persistedCurrentTripId() {
+    if (currentTripId != null) {
+      for (final trip in trips) {
+        if (trip.id == currentTripId && !trip.dataOriginMock) return currentTripId;
+      }
+    }
+    for (final trip in trips) {
+      if (!trip.dataOriginMock) return trip.id;
+    }
+    return null;
+  }
+
   TripSnapshot _snapshot() => TripSnapshot(
-    trips: trips,
-    currentTripId: currentTripId,
+    trips: trips.where((trip) => !trip.dataOriginMock).toList(),
+    currentTripId: _persistedCurrentTripId(),
     nextSeq: _seq,
     journal: journal.export(),
     exclusions: Map<String, ProposalExclusions>.from(_proposalExclusions),
     userPlaces: _userPlacesForSave(),
+    onboardingComplete: onboardingComplete,
+    bundledSamplesActive: bundledSamplesActive,
   );
+
+  bool get showOnboarding => !onboardingComplete;
+
+  List<Trip> get userTrips => trips.where((trip) => !trip.dataOriginMock).toList();
+
+  List<Trip> get sampleTrips => trips.where((trip) => trip.dataOriginMock).toList();
+
+  void browseBundledSamples() {
+    onboardingComplete = true;
+    bundledSamplesActive = true;
+    _ensureBundledSamplesPresent();
+    if (currentTripId == null || !trips.any((trip) => trip.id == currentTripId)) {
+      final sample = sampleTrips;
+      if (sample.isNotEmpty) {
+        selectTrip(sample.first.id);
+      }
+    }
+    notifyListeners();
+  }
+
+  void startOnboardingCreate() {
+    onboardingComplete = true;
+    openCreate();
+  }
+
+  void hideAllSamples() {
+    final removing = current?.dataOriginMock ?? false;
+    trips.removeWhere((trip) => trip.dataOriginMock);
+    bundledSamplesActive = false;
+    if (removing) {
+      currentTripId = userTrips.isEmpty ? null : userTrips.first.id;
+      selectedCityId = null;
+      homePushed = false;
+    }
+    notifyListeners();
+  }
 
   void clearRestoreNotice() {
     restoreNotice = null;
@@ -267,7 +366,7 @@ class TripController extends ChangeNotifier {
     return remainingAfter(today.items, next);
   }
 
-  bool get homeShowsSample => trips.any((trip) => trip.dataOriginMock);
+  bool get homeShowsSample => sampleTrips.isNotEmpty;
 
   void mergeUserPlaces(Iterable<Place> saved) {
     for (final place in saved) {
