@@ -52,12 +52,15 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: AppSpace.xs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, key: titleKey, style: AppType.largeTitle),
-          if (subtitle != null) ...[const SizedBox(height: 2), Text(subtitle!, style: AppType.footnote)],
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpace.xxs),
+            Text(subtitle!, style: AppType.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
         ],
       ),
     );
@@ -72,8 +75,48 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Text(text, style: AppType.footnoteStrong.copyWith(color: AppColors.secondary)),
+      padding: const EdgeInsets.only(top: AppSpace.lg, bottom: AppSpace.xs),
+      child: Text(text, style: AppType.section),
+    );
+  }
+}
+
+class NoticeBanner extends StatelessWidget {
+  const NoticeBanner({
+    super.key,
+    required this.message,
+    required this.background,
+    required this.foreground,
+    required this.icon,
+    this.bannerKey,
+    this.margin = const EdgeInsets.only(top: AppSpace.sm),
+  });
+
+  final String message;
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+  final Key? bannerKey;
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: bannerKey,
+      width: double.infinity,
+      margin: margin,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.sm),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadii.control)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: foreground),
+          const SizedBox(width: AppSpace.xs),
+          Expanded(
+            child: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.banner.copyWith(color: foreground)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -86,18 +129,12 @@ class SampleBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible) return const SizedBox.shrink();
-    return Container(
-      key: const Key('sample-banner'),
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: AppColors.sampleBg, borderRadius: BorderRadius.circular(8)),
-      child: const Text(
-        '샘플 데이터입니다. 실제 장소 정보가 아닙니다.',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontFamily: AppType.family, fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w500, color: AppColors.sampleFg),
-      ),
+    return const NoticeBanner(
+      bannerKey: Key('sample-banner'),
+      message: '샘플 데이터입니다. 실제 장소 정보가 아닙니다.',
+      background: AppColors.sampleBg,
+      foreground: AppColors.sampleFg,
+      icon: CupertinoIcons.exclamationmark_circle_fill,
     );
   }
 }
@@ -110,12 +147,12 @@ class LocalPackageStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: AppSpace.xs),
       child: Text(
         '일정은 이 기기에 있습니다 · 장소 $placeCount곳 · 지도 패키지는 받지 않았습니다',
         key: const Key('package-status'),
         maxLines: 2,
-        style: AppType.footnote,
+        style: AppType.caption,
       ),
     );
   }
@@ -129,12 +166,11 @@ class OfflineBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!visible) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: const Color(0xFFE8EEF4), borderRadius: BorderRadius.circular(10)),
-      child: const Text('오프라인. 저장된 데이터만 표시합니다.', style: AppType.footnoteStrong),
+    return const NoticeBanner(
+      message: '오프라인. 저장된 데이터만 표시합니다.',
+      background: AppColors.offlineBg,
+      foreground: AppColors.offlineFg,
+      icon: CupertinoIcons.wifi_slash,
     );
   }
 }
@@ -170,7 +206,7 @@ class FactBadge extends StatelessWidget {
         background = AppColors.accentSoft;
         foreground = AppColors.accent;
       case FactValidity.collected:
-        background = const Color(0xFFF2F2F7);
+        background = AppColors.canvas;
         foreground = AppColors.ink;
       case FactValidity.conflicted:
         background = AppColors.conflictBg;
@@ -182,13 +218,13 @@ class FactBadge extends StatelessWidget {
         background = const Color(0xFFF3E8E4);
         foreground = AppColors.danger;
       case FactValidity.unknown:
-        background = const Color(0xFFF2F2F7);
+        background = AppColors.canvas;
         foreground = AppColors.secondary;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(6)),
-      child: Text(badgeLabel(validity), style: AppType.footnoteStrong.copyWith(color: foreground)),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs, vertical: AppSpace.xxs),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadii.chip)),
+      child: Text(badgeLabel(validity), style: AppType.caption.copyWith(color: foreground, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -205,9 +241,48 @@ class BackRow extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
         onPressed: onPressed,
-        style: TextButton.styleFrom(minimumSize: const Size(44, 44), padding: const EdgeInsets.symmetric(horizontal: 0), alignment: Alignment.centerLeft),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          alignment: Alignment.centerLeft,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
         icon: const Icon(CupertinoIcons.chevron_back, size: 18, color: AppColors.accent),
         label: Text(label, style: AppType.headline.copyWith(color: AppColors.accent)),
+      ),
+    );
+  }
+}
+
+class QuietEmpty extends StatelessWidget {
+  const QuietEmpty({super.key, required this.message, this.title, this.icon = CupertinoIcons.square_list});
+
+  final String message;
+  final String? title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.md),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+            child: Icon(icon, size: 20, color: AppColors.accent),
+          ),
+          if (title != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text(title!, style: AppType.headline, textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: AppSpace.xs),
+          Text(message, style: AppType.footnote, textAlign: TextAlign.center),
+        ],
       ),
     );
   }
@@ -221,15 +296,29 @@ class EmptyPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: AppType.title),
-          const SizedBox(height: 8),
-          Text(message, style: AppType.body),
-        ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.lg),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+                child: const Icon(CupertinoIcons.square_list, size: 22, color: AppColors.accent),
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(title, style: AppType.title, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpace.xs),
+              Text(message, style: AppType.body.copyWith(color: AppColors.secondary), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -244,16 +333,26 @@ class NeedTrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.page),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PageHeader(title: title, titleKey: titleKey),
-          const Spacer(),
-          const Text('여행을 만들거나 고르면 이 화면을 쓸 수 있습니다.', style: AppType.body, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          AppButton(label: '여행 홈으로', onPressed: () => TripScope.of(context).selectTab(0)),
-          const Spacer(),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const QuietEmpty(message: '여행을 만들거나 고르면 이 화면을 쓸 수 있습니다.', icon: CupertinoIcons.map),
+                    const SizedBox(height: AppSpace.md),
+                    AppButton(label: '여행 홈으로', onPressed: () => TripScope.of(context).selectTab(0)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -271,18 +370,18 @@ class SelectChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = selected ? Colors.white : AppColors.ink;
-    final noteColor = selected ? Colors.white : AppColors.secondary;
+    final noteColor = selected ? const Color(0xE6FFFFFF) : AppColors.secondary;
     return Material(
-      color: selected ? AppColors.accent : Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      color: selected ? AppColors.accent : AppColors.card,
+      borderRadius: BorderRadius.circular(AppRadii.control),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.control),
         child: Container(
           constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadii.control),
             border: Border.all(color: selected ? AppColors.accent : AppColors.line),
           ),
           child: Column(
@@ -290,11 +389,120 @@ class SelectChip extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: AppType.headline.copyWith(color: foreground)),
-              if (note != null) Text(note!, style: AppType.footnote.copyWith(color: noteColor)),
+              if (note != null) Text(note!, style: AppType.caption.copyWith(color: noteColor)),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class DateToken extends StatelessWidget {
+  const DateToken({super.key, required this.label, required this.note, required this.selected, required this.onTap, this.width = 84});
+
+  final String label;
+  final String note;
+  final bool selected;
+  final VoidCallback onTap;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? Colors.white : AppColors.ink;
+    final noteColor = selected ? const Color(0xE6FFFFFF) : AppColors.secondary;
+    return Material(
+      color: selected ? AppColors.accent : AppColors.card,
+      borderRadius: BorderRadius.circular(AppRadii.control),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        child: Container(
+          width: width,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(label, style: AppType.headline.copyWith(color: foreground)),
+              Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: noteColor)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DateRailTile extends StatelessWidget {
+  const DateRailTile({super.key, required this.label, required this.note, required this.selected, required this.onTap});
+
+  final String label;
+  final String note;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        color: selected ? AppColors.accentSoft : null,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
+            const SizedBox(height: 2),
+            Text(note, style: AppType.caption.copyWith(color: selected ? AppColors.accent : AppColors.secondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MapFrame extends StatelessWidget {
+  const MapFrame({super.key, required this.child, this.note, this.expand = false});
+
+  final Widget child;
+  final String? note;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.map),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.map),
+        child: Column(
+          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (expand) Expanded(child: child) else child,
+            if (note != null)
+              ColoredBox(
+                color: AppColors.moveBg,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+                  child: Text(note!, style: AppType.caption.copyWith(color: AppColors.offlineFg)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpace.page, AppSpace.xs, AppSpace.page, 0),
+      child: frame,
     );
   }
 }

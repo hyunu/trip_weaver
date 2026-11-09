@@ -18,58 +18,72 @@ class ScheduleBlock extends StatelessWidget {
     final tone = _tone(item.kind);
     return Material(
       color: tone.background,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadii.card),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         child: Container(
           key: Key('item-${item.id}'),
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          padding: const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: selected ? 1.5 : 1),
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            border: Border.all(color: selected ? AppColors.accent : tone.border, width: selected ? 1.5 : 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (proposal)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('제안', style: AppType.footnoteStrong.copyWith(color: AppColors.warningFg)),
-                ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _KindChip(label: kindLabel(item.kind), foreground: tone.foreground, background: tone.chip),
+                  if (proposal) ...[
+                    const SizedBox(width: AppSpace.xs),
+                    const _KindChip(label: '제안', foreground: AppColors.warningFg, background: AppColors.markerBg),
+                  ],
                   if (item.categoryLabel != null) ...[
-                    const SizedBox(width: 8),
-                    Expanded(child: Padding(padding: const EdgeInsets.only(top: 2), child: Text(item.categoryLabel!, style: AppType.footnote))),
+                    const SizedBox(width: AppSpace.xs),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(item.categoryLabel!, style: AppType.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                   ] else
                     const Spacer(),
-                  if (item.locked) Text('고정', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
+                  if (item.locked)
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpace.xs),
+                      child: Text('고정', style: AppType.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.w600)),
+                    ),
                 ],
               ),
               if (item.unconfirmedFields.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _Marker(label: '미확인 값', detail: item.unconfirmedFields.join(' · '), foreground: AppColors.warningFg, background: const Color(0xFFF3E0B8)),
+                const SizedBox(height: AppSpace.xs),
+                _Marker(label: '미확인 값', detail: item.unconfirmedFields.join(' · '), foreground: AppColors.warningFg, background: AppColors.markerBg),
               ],
               if (item.hoursConflict) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpace.xs),
                 const _Marker(label: '충돌', detail: '운영시간', foreground: AppColors.conflictFg, background: AppColors.conflictBg),
               ],
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpace.xs),
               Text(itemTimeLabel(item), style: AppType.footnote),
               if (item.title.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(item.title, style: emphasize ? AppType.title : AppType.headline),
+                const SizedBox(height: AppSpace.xxs),
+                Text(item.title, style: emphasize ? AppType.cardTitle : AppType.headline),
               ],
               for (final warning in item.warnings) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpace.xxs),
                 Text(warningLabel(warning), style: AppType.footnote.copyWith(color: AppColors.warningFg)),
               ],
-              if (item.note != null) ...[const SizedBox(height: 4), Text(item.note!, style: AppType.footnote)],
-              if (item.dwellIsProposal) ...[const SizedBox(height: 4), const Text('체류 시간은 제안값입니다.', style: AppType.footnote)],
+              if (item.note != null) ...[
+                const SizedBox(height: AppSpace.xxs),
+                Text(item.note!, style: AppType.footnote),
+              ],
+              if (item.dwellIsProposal) ...[
+                const SizedBox(height: AppSpace.xxs),
+                const Text('체류 시간은 제안값입니다.', style: AppType.footnote),
+              ],
             ],
           ),
         ),
@@ -88,9 +102,9 @@ class _KindChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: AppType.footnoteStrong.copyWith(color: foreground)),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs, vertical: 3),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadii.chip)),
+      child: Text(label, style: AppType.caption.copyWith(color: foreground, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -109,36 +123,42 @@ class _Marker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(6)),
-          child: Text(label, style: AppType.footnoteStrong.copyWith(color: foreground)),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs, vertical: 3),
+          decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadii.chip)),
+          child: Text(label, style: AppType.caption.copyWith(color: foreground, fontWeight: FontWeight.w600)),
         ),
-        const SizedBox(width: 8),
-        Expanded(child: Padding(padding: const EdgeInsets.only(top: 2), child: Text(detail, style: AppType.footnote.copyWith(color: foreground)))),
+        const SizedBox(width: AppSpace.xs),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(detail, style: AppType.footnote.copyWith(color: foreground)),
+          ),
+        ),
       ],
     );
   }
 }
 
 class _Tone {
-  const _Tone(this.background, this.foreground, this.chip);
+  const _Tone(this.background, this.foreground, this.chip, this.border);
 
   final Color background;
   final Color foreground;
   final Color chip;
+  final Color border;
 }
 
 _Tone _tone(ItemKind kind) {
   switch (kind) {
     case ItemKind.move:
-      return const _Tone(Color(0xFFF7FAFC), AppColors.move, AppColors.moveBg);
+      return const _Tone(Color(0xFFF7FAFC), AppColors.move, AppColors.moveBg, AppColors.line);
     case ItemKind.stay:
-      return const _Tone(Colors.white, AppColors.stay, AppColors.accentSoft);
+      return const _Tone(Colors.white, AppColors.stay, AppColors.accentSoft, AppColors.line);
     case ItemKind.meal:
-      return const _Tone(Color(0xFFFFF9F6), AppColors.meal, AppColors.mealBg);
+      return const _Tone(Color(0xFFFFF9F6), AppColors.meal, AppColors.mealBg, AppColors.line);
     case ItemKind.rest:
-      return const _Tone(Color(0xFFF8F7F4), AppColors.rest, AppColors.restBg);
+      return const _Tone(Color(0xFFF8F7F4), AppColors.rest, AppColors.restBg, AppColors.line);
     case ItemKind.gap:
-      return const _Tone(AppColors.warningBg, AppColors.warningFg, Color(0xFFF3E0B8));
+      return const _Tone(AppColors.warningBg, AppColors.warningFg, AppColors.markerBg, AppColors.markerBg);
   }
 }

@@ -52,14 +52,14 @@ class _TripFormScreenState extends State<TripFormScreen> {
           controller: countryController,
           style: AppType.body,
           textCapitalization: TextCapitalization.characters,
-          decoration: _decoration('두 글자 코드'),
+          decoration: AppFields.decoration('두 글자 코드'),
           onChanged: (value) => setState(() => draft.countryCode = value.toUpperCase()),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: countryNames.containsKey(draft.countryCode) ? draft.countryCode : null,
           isExpanded: true,
-          decoration: _decoration('국가 이름'),
+          decoration: AppFields.decoration('국가 이름'),
           items: [
             for (final entry in names) DropdownMenuItem(value: entry.key, child: Text('${entry.value} · ${entry.key}', style: AppType.body)),
           ],
@@ -84,7 +84,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
         Row(
           children: [
             Expanded(
-              child: TextField(controller: tagController, style: AppType.body, decoration: _decoration('직접 입력')),
+              child: TextField(controller: tagController, style: AppType.body, decoration: AppFields.decoration('직접 입력')),
             ),
             const SizedBox(width: 8),
             AppButton(
@@ -122,14 +122,14 @@ class _TripFormScreenState extends State<TripFormScreen> {
           controller: budgetController,
           style: AppType.body,
           keyboardType: TextInputType.number,
-          decoration: _decoration('금액'),
+          decoration: AppFields.decoration('금액'),
           onChanged: (value) => draft.budgetAmount = value,
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: draft.budgetCurrency.isEmpty ? null : draft.budgetCurrency,
           isExpanded: true,
-          decoration: _decoration('통화'),
+          decoration: AppFields.decoration('통화'),
           items: [for (final code in currencyCodes) DropdownMenuItem(value: code, child: Text(code, style: AppType.body))],
           onChanged: (value) => setState(() => draft.budgetCurrency = value ?? ''),
         ),
@@ -179,13 +179,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
             style: AppType.body,
-            decoration: _decoration('도시 이름'),
+            decoration: AppFields.decoration('도시 이름'),
             onChanged: (value) => city.name = value,
           ),
           if (errors['city-$index-name'] != null) _error(errors['city-$index-name']!),
@@ -193,7 +193,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
           DropdownButtonFormField<String>(
             initialValue: city.countryCode,
             isExpanded: true,
-            decoration: _decoration('국가'),
+            decoration: AppFields.decoration('국가'),
             items: [for (final entry in countryNames.entries) DropdownMenuItem(value: entry.key, child: Text(entry.key, style: AppType.body))],
             onChanged: (value) => setState(() => city.countryCode = value ?? city.countryCode),
           ),
@@ -243,7 +243,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
       children: [
         Text(label, style: AppType.footnoteStrong),
         const SizedBox(height: 4),
-        TextField(controller: controller, style: AppType.body, maxLines: maxLines, decoration: _decoration(label), onChanged: onChanged),
+        TextField(controller: controller, style: AppType.body, maxLines: maxLines, decoration: AppFields.decoration(label), onChanged: onChanged),
         if (error != null) _error(error),
       ],
     );
@@ -251,16 +251,4 @@ class _TripFormScreenState extends State<TripFormScreen> {
 
   Widget _error(String text) => Padding(padding: const EdgeInsets.only(top: 4), child: Text(text, style: AppType.footnote.copyWith(color: AppColors.danger)));
 
-  InputDecoration _decoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: AppType.body.copyWith(color: AppColors.tertiary),
-      filled: true,
-      fillColor: Colors.white,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.line)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.accent)),
-    );
-  }
 }

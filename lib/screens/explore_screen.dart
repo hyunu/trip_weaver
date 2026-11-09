@@ -38,9 +38,12 @@ class ExploreScreen extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             height: 240,
-            child: TripMap(
-              pins: pins,
-              onPinTap: (pin) => controller.openPlace(pin.placeId, tablet: tablet),
+            child: MapFrame(
+              expand: true,
+              child: TripMap(
+                pins: pins,
+                onPinTap: (pin) => controller.openPlace(pin.placeId, tablet: tablet),
+              ),
             ),
           ),
         ],
@@ -84,16 +87,7 @@ class ExploreScreen extends StatelessWidget {
             TextField(
               key: const Key('place-query'),
               style: AppType.body,
-              decoration: InputDecoration(
-                hintText: blocked ? '저장된 장소' : '장소 이름',
-                hintStyle: AppType.body.copyWith(color: AppColors.tertiary),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.line)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.accent)),
-              ),
+              decoration: AppFields.decoration(blocked ? '저장된 장소' : '장소 이름'),
               readOnly: blocked,
               onChanged: blocked ? null : controller.setQuery,
             ),
@@ -108,7 +102,7 @@ class ExploreScreen extends StatelessWidget {
               const Text('후기 자료가 연결되지 않아 추천 순서가 없습니다.', style: AppType.footnote),
               const SizedBox(height: 12),
               if (results.isEmpty)
-                const Text('이 조건의 장소가 없습니다.', style: AppType.body)
+                const QuietEmpty(message: '이 조건의 장소가 없습니다.')
               else
                 for (final place in results) _PlaceCard(place: place, tablet: tablet),
             ],
@@ -136,8 +130,8 @@ class _PlaceCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.card),
         child: InkWell(
           key: Key('place-card-${place.id}'),
           borderRadius: BorderRadius.circular(12),
@@ -146,7 +140,7 @@ class _PlaceCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadii.card),
               border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: selected ? 1.5 : 1),
             ),
             child: Column(

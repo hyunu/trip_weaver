@@ -98,7 +98,13 @@ class _DateStrip extends StatelessWidget {
           final day = days[index];
           final selected = sameDay(day, controller.journalDate);
           final noted = controller.journalText(day) != null;
-          return _DateChip(day: day, selected: selected, noted: noted, onTap: () => controller.selectJournalDate(day));
+          return DateToken(
+            label: '${day.month}.${day.day}',
+            note: noted ? '기록 있음' : '기록 없음',
+            selected: selected,
+            width: 96,
+            onTap: () => controller.selectJournalDate(day),
+          );
         },
       ),
     );
@@ -121,60 +127,13 @@ class _DateList extends StatelessWidget {
         final day = days[index];
         final selected = sameDay(day, controller.journalDate);
         final noted = controller.journalText(day) != null;
-        return InkWell(
+        return DateRailTile(
+          label: formatMonthDay(day),
+          note: noted ? '기록 있음' : '기록 없음',
+          selected: selected,
           onTap: () => controller.selectJournalDate(day),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            color: selected ? AppColors.accentSoft : null,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(formatMonthDay(day), style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-                Text(noted ? '기록 있음' : '기록 없음', style: AppType.footnote),
-              ],
-            ),
-          ),
         );
       },
-    );
-  }
-}
-
-class _DateChip extends StatelessWidget {
-  const _DateChip({required this.day, required this.selected, required this.noted, required this.onTap});
-
-  final DateTime day;
-  final bool selected;
-  final bool noted;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : AppColors.ink;
-    final note = selected ? Colors.white : AppColors.secondary;
-    return Material(
-      color: selected ? AppColors.accent : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 84,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('${day.month}.${day.day}', style: AppType.headline.copyWith(color: foreground)),
-              Text(noted ? '기록 있음' : '기록 없음', style: AppType.footnote.copyWith(color: note)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -189,12 +148,18 @@ class _EmptyRecord extends StatelessWidget {
       key: const Key('journal-empty'),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(CupertinoIcons.book, size: 24, color: AppColors.tertiary),
-          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+            child: const Icon(CupertinoIcons.book, size: 20, color: AppColors.accent),
+          ),
+          const SizedBox(height: 12),
           Text(formatMonthDay(controller.journalDate), style: AppType.footnote),
           const SizedBox(height: 4),
           const Text('기록이 없습니다', style: AppType.title),
@@ -215,7 +180,7 @@ class _RecordSections extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: const Column(
         children: [
           _InfoRow(title: '날짜별 앨범', detail: '표시할 사진이 없습니다.'),
@@ -286,14 +251,9 @@ class _StoryEditorState extends State<_StoryEditor> {
           style: AppType.body,
           minLines: 3,
           maxLines: 6,
-          decoration: InputDecoration(
-            hintText: '이 날의 이야기를 적으세요',
-            hintStyle: AppType.body.copyWith(color: AppColors.tertiary),
-            filled: true,
+          decoration: AppFields.decoration('이 날의 이야기를 적으세요').copyWith(
             fillColor: AppColors.canvas,
             contentPadding: const EdgeInsets.all(12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.line)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.line)),
           ),
           onChanged: (_) => setState(() {}),
         ),
