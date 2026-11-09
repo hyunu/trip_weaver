@@ -105,12 +105,25 @@ class City {
 }
 
 class GeoCandidate {
-  const GeoCandidate({required this.id, required this.label, required this.coordinateLabel, required this.sourceName});
+  const GeoCandidate({
+    required this.id,
+    required this.label,
+    required this.coordinateLabel,
+    required this.sourceName,
+    this.cityName,
+    this.countryCode,
+  });
 
   final String id;
   final String label;
   final String coordinateLabel;
   final String sourceName;
+
+  /// Short city label when known (e.g. from geocoder).
+  final String? cityName;
+
+  /// ISO 3166-1 alpha-2 when known.
+  final String? countryCode;
 }
 
 class PlanItem {
