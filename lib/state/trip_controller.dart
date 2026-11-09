@@ -440,6 +440,17 @@ class TripController extends ChangeNotifier {
     return current?.links[placeId] ?? TripPlaceLink();
   }
 
+  void markVisitDone(String itemId) {
+    final trip = current;
+    if (trip == null || trip.visitDoneIds.contains(itemId)) return;
+    if (_findItem(itemId) == null) return;
+    trip.visitDoneIds.add(itemId);
+    trip.pendingLocalEdits += 1;
+    notifyListeners();
+  }
+
+  void skipVisit(String itemId) => markVisitDone(itemId);
+
   void toggleLock(String itemId) {
     final item = _findItem(itemId);
     if (item == null || current == null) return;

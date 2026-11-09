@@ -11,6 +11,7 @@ import '../shell/scope.dart';
 import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
+import '../widgets/next_stop_card.dart';
 import '../widgets/schedule_block.dart';
 
 class UnderwayScreen extends StatelessWidget {
@@ -27,7 +28,13 @@ class UnderwayScreen extends StatelessWidget {
     final next = controller.destinationFor(trip);
     final nextPlace = controller.placeById(next?.placeId);
     final focus = nextPlace == null ? null : placeGeo(nextPlace);
-    final visits = visitPins(today, controller.placeById, emphasizePlaceId: nextPlace?.id, now: controller.now);
+    final visits = visitPins(
+      today,
+      controller.placeById,
+      emphasizePlaceId: nextPlace?.id,
+      now: controller.now,
+      doneIds: trip.visitDoneIds,
+    );
     final skip = visits.map((pin) => pin.placeId).toSet();
     final nearby = focus == null ? const <MapPin>[] : nearbyPins(controller.places, focus, skip);
     final pins = [...visits, ...nearby];
@@ -126,12 +133,12 @@ class _DestinationColumn extends StatelessWidget {
     if (trip == null) return const SizedBox.shrink();
     final next = controller.destinationFor(trip);
     final today = dayFor(trip.activeDays, controller.now);
-    final previous = today == null ? null : previousVisit(today.items, controller.now);
+    final previous = today == null ? null : previousVisit(today.items, controller.now, doneIds: trip.visitDoneIds);
     final remaining = controller.remainingFor(trip);
     final nextPlace = next == null ? null : controller.placeById(next.placeId);
     final focus = nextPlace == null ? null : placeGeo(nextPlace);
     final tablet = AdaptiveScope.of(context).tablet;
-    final progress = today == null ? null : visitProgress(today.items, controller.now);
+    final progress = today == null ? null : visitProgress(today.items, controller.now, doneIds: trip.visitDoneIds);
     void open(PlanItem item) => controller.openActiveItem(item, tablet: tablet);
     return ListView(
       key: const Key('underway-steps'),
@@ -155,9 +162,7 @@ class _DestinationColumn extends StatelessWidget {
         else ...[
           const Text('다음 목적지', style: AppType.footnoteStrong),
           const SizedBox(height: 8),
-          ScheduleBlock(key: const Key('underway-next'), item: next, emphasize: true, onTap: () => open(next)),
-          const SizedBox(height: 8),
-          const Text('대체 경로 없음', style: AppType.footnote),
+          NextStopCard(item: next, place: nextPlace, onOpenDetail: () => open(next)),
         ],
         if (nearby.isNotEmpty) ...[
           const SectionLabel('주변 장소'),

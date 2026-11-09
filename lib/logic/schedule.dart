@@ -10,19 +10,24 @@ DayPlan? dayFor(List<DayPlan> days, DateTime day) {
   return null;
 }
 
-PlanItem? nextVisit(List<PlanItem> items, DateTime now) {
+bool visitEnded(PlanItem item, DateTime now, Set<String> doneIds) {
+  if (doneIds.contains(item.id)) return true;
+  return item.end != null && !now.isBefore(item.end!);
+}
+
+PlanItem? nextVisit(List<PlanItem> items, DateTime now, {Set<String> doneIds = const {}}) {
   for (final item in items) {
     if (!visitKinds.contains(item.kind)) continue;
-    if (item.end == null || now.isBefore(item.end!)) return item;
+    if (!visitEnded(item, now, doneIds)) return item;
   }
   return null;
 }
 
-PlanItem? previousVisit(List<PlanItem> items, DateTime now) {
+PlanItem? previousVisit(List<PlanItem> items, DateTime now, {Set<String> doneIds = const {}}) {
   PlanItem? last;
   for (final item in items) {
     if (!visitKinds.contains(item.kind)) continue;
-    if (item.end != null && !now.isBefore(item.end!)) last = item;
+    if (visitEnded(item, now, doneIds)) last = item;
   }
   return last;
 }
@@ -49,7 +54,7 @@ String nextScheduleLine(Trip trip, DateTime now) {
   if (trip.activeDays.isEmpty) return '적용된 일정 없음';
   final today = dayFor(trip.activeDays, now);
   if (today != null) {
-    final next = nextVisit(today.items, now);
+    final next = nextVisit(today.items, now, doneIds: trip.visitDoneIds);
     if (next == null) return '오늘 남은 방문이 없습니다';
     final clock = next.start == null ? '' : '${formatHm(next.start!)} ';
     return '다음 일정 $clock${next.title}';
@@ -78,7 +83,7 @@ PlanItem? nextDestination(Trip trip, DateTime now) {
   if (trip.activeDays.isEmpty) return null;
   final today = dayFor(trip.activeDays, now);
   if (today == null) return null;
-  return nextVisit(today.items, now);
+  return nextVisit(today.items, now, doneIds: trip.visitDoneIds);
 }
 
 /// The first visit on a day after [now]'s date, for when today has nothing left.
@@ -93,13 +98,13 @@ PlanItem? nextDestination(Trip trip, DateTime now) {
   return null;
 }
 
-({int done, int total}) visitProgress(List<PlanItem> items, DateTime now) {
+({int done, int total}) visitProgress(List<PlanItem> items, DateTime now, {Set<String> doneIds = const {}}) {
   var done = 0;
   var total = 0;
   for (final item in items) {
     if (!visitKinds.contains(item.kind)) continue;
     total += 1;
-    if (item.end != null && !now.isBefore(item.end!)) done += 1;
+    if (visitEnded(item, now, doneIds)) done += 1;
   }
   return (done: done, total: total);
 }
