@@ -54,7 +54,7 @@ class TripDetailScreen extends StatelessWidget {
               for (final tag in trip.tasteTags)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: AppColors.accentSoft, borderRadius: BorderRadius.circular(AppRadii.chip)),
                   child: Text(tag, style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
                 ),
             ],
@@ -114,7 +114,7 @@ class _CityRow extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+        decoration: AppDecor.card(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

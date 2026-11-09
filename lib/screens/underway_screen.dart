@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
@@ -31,11 +32,12 @@ class UnderwayScreen extends StatelessWidget {
     final nearby = focus == null ? const <MapPin>[] : nearbyPins(controller.places, focus, skip);
     final pins = [...visits, ...nearby];
     final map = pins.isEmpty
-        ? const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text('좌표가 확인된 장소가 없습니다.', style: AppType.body),
-          )
-        : TripMap(pins: pins, focus: focus, onPinTap: (pin) => _openPin(controller, pin));
+        ? const MapFrame(expand: true, child: QuietEmpty(message: '좌표가 확인된 장소가 없습니다.', icon: CupertinoIcons.map))
+        : MapFrame(
+            expand: true,
+            note: routeEstimateNote,
+            child: TripMap(pins: pins, focus: focus, onPinTap: (pin) => _openPin(controller, pin)),
+          );
     final steps = _DestinationColumn(nearby: nearby);
     if (!tablet) {
       return Column(
@@ -51,11 +53,7 @@ class UnderwayScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(height: 240, child: map),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
-            child: Text(routeEstimateNote, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
-          ),
+          SizedBox(height: 248, child: map),
           Expanded(child: steps),
         ],
       );
@@ -70,10 +68,7 @@ class UnderwayScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Align(alignment: Alignment.centerLeft, child: Text(routeEstimateNote, style: AppType.footnote)),
-        ),
+        const SizedBox(height: 8),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -173,8 +168,8 @@ class _NearbyRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.card),
         child: InkWell(
           onTap: () {
             controller.openPlace(pin.placeId, tablet: AdaptiveScope.of(context).tablet);
@@ -184,7 +179,7 @@ class _NearbyRow extends StatelessWidget {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+            decoration: AppDecor.card(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

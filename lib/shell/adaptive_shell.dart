@@ -196,7 +196,7 @@ class _TabBar extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.only(bottom: clearance),
         child: SizedBox(
-          height: 49,
+          height: 52,
           child: Row(
             children: [
               for (var i = 0; i < _destinations.length; i++)
@@ -210,12 +210,13 @@ class _TabBar extends StatelessWidget {
                         Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.tertiary),
                         const SizedBox(height: 2),
                         Text(
-                          _destinations[i].label,
+                          _destinations[i].shortLabel,
                           maxLines: 1,
-                          style: AppType.footnote.copyWith(
-                            height: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppType.caption.copyWith(
+                            height: 1.1,
                             color: i == index ? AppColors.accent : AppColors.tertiary,
-                            fontWeight: i == index ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
                           ),
                         ),
                       ],
@@ -263,7 +264,9 @@ class _Rail extends StatelessWidget {
                         Text(
                           _destinations[i].shortLabel,
                           textAlign: TextAlign.center,
-                          style: AppType.footnote.copyWith(color: i == index ? AppColors.accent : AppColors.secondary, fontWeight: i == index ? FontWeight.w600 : FontWeight.w400),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppType.caption.copyWith(color: i == index ? AppColors.accent : AppColors.secondary, fontWeight: i == index ? FontWeight.w600 : FontWeight.w500),
                         ),
                       ],
                     ),

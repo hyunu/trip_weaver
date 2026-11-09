@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../format.dart';
 import '../logic/schedule.dart';
+import '../model/journal.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
 import '../theme/app_theme.dart';
@@ -96,7 +97,14 @@ class _DateStrip extends StatelessWidget {
         itemBuilder: (context, index) {
           final day = days[index];
           final selected = sameDay(day, controller.journalDate);
-          return _DateChip(day: day, selected: selected, onTap: () => controller.selectJournalDate(day));
+          final noted = controller.journalText(day) != null;
+          return DateToken(
+            label: '${day.month}.${day.day}',
+            note: noted ? '기록 있음' : '기록 없음',
+            selected: selected,
+            width: 96,
+            onTap: () => controller.selectJournalDate(day),
+          );
         },
       ),
     );
@@ -118,59 +126,14 @@ class _DateList extends StatelessWidget {
       itemBuilder: (context, index) {
         final day = days[index];
         final selected = sameDay(day, controller.journalDate);
-        return InkWell(
+        final noted = controller.journalText(day) != null;
+        return DateRailTile(
+          label: formatMonthDay(day),
+          note: noted ? '기록 있음' : '기록 없음',
+          selected: selected,
           onTap: () => controller.selectJournalDate(day),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            color: selected ? AppColors.accentSoft : null,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(formatMonthDay(day), style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-                const Text('기록 없음', style: AppType.footnote),
-              ],
-            ),
-          ),
         );
       },
-    );
-  }
-}
-
-class _DateChip extends StatelessWidget {
-  const _DateChip({required this.day, required this.selected, required this.onTap});
-
-  final DateTime day;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : AppColors.ink;
-    final note = selected ? Colors.white : AppColors.secondary;
-    return Material(
-      color: selected ? AppColors.accent : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 84,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('${day.month}.${day.day}', style: AppType.headline.copyWith(color: foreground)),
-              Text('기록 없음', style: AppType.footnote.copyWith(color: note)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -185,12 +148,18 @@ class _EmptyRecord extends StatelessWidget {
       key: const Key('journal-empty'),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(CupertinoIcons.book, size: 24, color: AppColors.tertiary),
-          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+            child: const Icon(CupertinoIcons.book, size: 20, color: AppColors.accent),
+          ),
+          const SizedBox(height: 12),
           Text(formatMonthDay(controller.journalDate), style: AppType.footnote),
           const SizedBox(height: 4),
           const Text('기록이 없습니다', style: AppType.title),
@@ -211,14 +180,93 @@ class _RecordSections extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: const Column(
         children: [
           _InfoRow(title: '날짜별 앨범', detail: '표시할 사진이 없습니다.'),
           Divider(height: 1, color: AppColors.line),
-          _InfoRow(title: '하루 이야기', detail: '작성된 이야기가 없습니다.'),
+          _StorySection(),
         ],
       ),
+    );
+  }
+}
+
+class _StorySection extends StatelessWidget {
+  const _StorySection();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final trip = controller.current;
+    final saved = controller.journalText();
+    if (trip == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('하루 이야기', style: AppType.headline),
+          const SizedBox(height: 2),
+          Text(saved == null ? '작성된 이야기가 없습니다.' : '이 기기에만 저장된 이야기', style: AppType.footnote),
+          const SizedBox(height: 8),
+          _StoryEditor(
+            key: ValueKey('${trip.id}-${journalDayKey(controller.journalDate)}'),
+            initial: saved ?? '',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryEditor extends StatefulWidget {
+  const _StoryEditor({super.key, required this.initial});
+
+  final String initial;
+
+  @override
+  State<_StoryEditor> createState() => _StoryEditorState();
+}
+
+class _StoryEditorState extends State<_StoryEditor> {
+  late final TextEditingController text = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final unchanged = text.text.trim() == widget.initial.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const Key('journal-story'),
+          controller: text,
+          style: AppType.body,
+          minLines: 3,
+          maxLines: 6,
+          decoration: AppFields.decoration('이 날의 이야기를 적으세요').copyWith(
+            fillColor: AppColors.canvas,
+            contentPadding: const EdgeInsets.all(12),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: AppButton(
+            key: const Key('save-journal'),
+            label: '저장',
+            onPressed: unchanged ? null : () => controller.saveJournal(text.text),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trip_weave/main.dart';
 import 'package:trip_weave/map/osm_tiles.dart';
+import 'package:trip_weave/map/trip_map.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 
 void main() {
@@ -68,7 +69,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('trip-map')), findsOneWidget);
     expect(find.byKey(const Key('map-pin-d1108-park')), findsOneWidget);
-    expect(find.text('실경로가 없습니다. 번호는 방문 순서이고, 이동 시간은 직선 거리 기반 추정입니다.'), findsOneWidget);
+    expect(find.text(routeEstimateNote), findsOneWidget);
     expect(find.textContaining('OpenStreetMap'), findsNothing);
     final gallery = find.byKey(const Key('item-d1108-gallery'));
     await _reveal(tester, gallery, find.byKey(const Key('itinerary-scroll')));
@@ -99,7 +100,7 @@ void main() {
     expect(find.byKey(const Key('trip-map')), findsOneWidget);
     expect(find.byKey(const Key('map-pin-p1108-market')), findsOneWidget);
     expect(find.byKey(const Key('map-pin-wharf')), findsOneWidget);
-    expect(tester.widget<Text>(find.text('실경로가 없습니다. 번호는 방문 순서이고, 이동 시간은 직선 거리 기반 추정입니다.')).style!.fontSize, 13);
+    expect(tester.widget<Text>(find.text(routeEstimateNote)).style!.fontSize, 13);
     await _reveal(tester, find.text('주변 장소'), find.byKey(const Key('underway-steps')));
     expect(find.text('주변 장소'), findsOneWidget);
     expect(find.byType(AspectRatio), findsNothing);

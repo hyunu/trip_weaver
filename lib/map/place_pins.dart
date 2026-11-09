@@ -43,6 +43,21 @@ List<MapPin> nearbyPins(List<Place> places, GeoPoint focus, Set<String> skipIds,
   return pins;
 }
 
+/// Numbered visit pins in visit order. Nearby pins have no order and are omitted.
+List<MapPin> orderedVisitPins(List<MapPin> pins) {
+  final visits = pins.where((pin) => pin.order != null).toList()..sort((a, b) => a.order!.compareTo(b.order!));
+  return visits;
+}
+
+double visitRouteMeters(List<MapPin> pins) {
+  final visits = orderedVisitPins(pins);
+  var total = 0.0;
+  for (var index = 1; index < visits.length; index++) {
+    total += distanceMeters(visits[index - 1].point, visits[index].point);
+  }
+  return total;
+}
+
 List<MapPin> explorePins(List<Place> places, {String? selectedId}) {
   final pins = <MapPin>[];
   for (final place in places) {

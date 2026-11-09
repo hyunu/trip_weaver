@@ -6,13 +6,18 @@ import '../logic/propose.dart';
 import '../logic/schedule.dart';
 import '../logic/trip_rules.dart';
 import '../logic/city_lookup.dart';
+import '../model/journal.dart';
 import '../model/models.dart';
+import 'trip_store.dart';
 
 class TripController extends ChangeNotifier {
-  TripController({DateTime? now, SampleCatalog? catalog}) : now = now ?? DateTime(2026, 11, 8, 10, 40) {
+  TripController({DateTime? now, SampleCatalog? catalog, TripStore? store})
+    : now = now ?? DateTime(2026, 11, 8, 10, 40),
+      _store = store {
     final seed = catalog ?? buildSampleCatalog();
     trips = seed.trips;
     places = seed.places;
+    _sampleTripIds = {for (final trip in seed.trips) if (trip.dataOriginMock) trip.id};
     currentTripId = seed.currentTripId;
     selectedDate = dateOnly(this.now);
     journalDate = dateOnly(this.now);
@@ -46,7 +51,42 @@ class TripController extends ChangeNotifier {
   final Map<String, String> verificationNotes = {};
   final Map<String, List<GeoCandidate>> cityCandidates = {};
   final Map<String, double> scrollOffsets = {};
+  final JournalBook journal = JournalBook();
   int _seq = 100;
+  final TripStore? _store;
+  late final Set<String> _sampleTripIds;
+  Future<void> _saveChain = Future<void>.value();
+
+  Future<void> get persistenceSettled => _saveChain;
+
+  Future<void> restore() async {
+    final store = _store;
+    if (store == null) return;
+    final snapshot = await store.read();
+    if (snapshot == null) return;
+    for (final trip in snapshot.trips) {
+      if (_sampleTripIds.contains(trip.id)) trip.dataOriginMock = true;
+    }
+    trips = snapshot.trips;
+    currentTripId = snapshot.currentTripId;
+    if (snapshot.nextSeq > _seq) _seq = snapshot.nextSeq;
+    final trip = current;
+    if (trip == null || trip.cities.isEmpty) {
+      selectedCityId = null;
+    } else if (selectedCityId == null || trip.cities.every((city) => city.id != selectedCityId)) {
+      selectedCityId = trip.cities.firstWhere((city) => city.coordinateConfirmed, orElse: () => trip.cities.first).id;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    final store = _store;
+    if (store == null) return;
+    final encoded = encodeTripSnapshot(TripSnapshot(trips: trips, currentTripId: currentTripId, nextSeq: _seq));
+    _saveChain = _saveChain.catchError((Object _) {}).then((_) => store.write(encoded));
+  }
 
   Trip? get current {
     for (final trip in trips) {
@@ -170,6 +210,20 @@ class TripController extends ChangeNotifier {
 
   void selectJournalDate(DateTime date) {
     journalDate = dateOnly(date);
+    notifyListeners();
+  }
+
+  String? journalText([DateTime? day]) {
+    final trip = current;
+    if (trip == null) return null;
+    return journal.text(trip.id, day ?? journalDate);
+  }
+
+  void saveJournal(String raw) {
+    final trip = current;
+    if (trip == null) return;
+    if (!journal.save(trip.id, journalDate, raw)) return;
+    trip.pendingLocalEdits += 1;
     notifyListeners();
   }
 

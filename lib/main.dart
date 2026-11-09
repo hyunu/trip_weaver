@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/scope.dart';
 import 'state/trip_controller.dart';
+import 'state/trip_store.dart';
 import 'theme/app_theme.dart';
 
 class TripWeaveApp extends StatefulWidget {
@@ -17,26 +18,45 @@ class TripWeaveApp extends StatefulWidget {
 }
 
 class _TripWeaveAppState extends State<TripWeaveApp> {
-  late final TripController controller;
+  TripController? controller;
   late final bool owned;
 
   @override
   void initState() {
     super.initState();
     owned = widget.controller == null;
-    controller = widget.controller ?? TripController(now: widget.now);
+    if (widget.controller != null) {
+      controller = widget.controller;
+    } else {
+      _openStoredTrips();
+    }
+  }
+
+  Future<void> _openStoredTrips() async {
+    final store = await FileTripStore.open();
+    final next = TripController(now: widget.now, store: store);
+    await next.restore();
+    if (!mounted) {
+      next.dispose();
+      return;
+    }
+    setState(() => controller = next);
   }
 
   @override
   void dispose() {
-    if (owned) controller.dispose();
+    if (owned) controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final ready = controller;
+    if (ready == null) {
+      return const MaterialApp(home: SizedBox.shrink());
+    }
     return TripScope(
-      controller: controller,
+      controller: ready,
       child: MaterialApp(
         title: 'TripWeave',
         debugShowCheckedModeBanner: false,

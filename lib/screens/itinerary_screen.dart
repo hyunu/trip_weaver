@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
@@ -90,28 +91,23 @@ class _DayPane extends StatelessWidget {
     final pins = visitPins(day, controller.placeById, now: controller.now, emphasizePlaceId: nextToday ? next.placeId : null);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final mapHeight = (constraints.maxHeight - 120).clamp(140.0, 240.0);
+        final mapHeight = (constraints.maxHeight - 176).clamp(120.0, 220.0);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (pins.isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Text('이 날짜에 좌표가 확인된 장소가 없습니다.', style: AppType.body),
-              )
-            else ...[
-              SizedBox(
-                height: mapHeight,
-                child: TripMap(
-                  pins: pins,
-                  onPinTap: (pin) => controller.openItem(pin.id, tablet: tablet),
+              const MapFrame(child: QuietEmpty(message: '이 날짜에 좌표가 확인된 장소가 없습니다.', icon: CupertinoIcons.map))
+            else
+              MapFrame(
+                note: routeEstimateNote,
+                child: SizedBox(
+                  height: mapHeight,
+                  child: TripMap(
+                    pins: pins,
+                    onPinTap: (pin) => controller.openItem(pin.id, tablet: tablet),
+                  ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 6, 16, 4),
-                child: Text(routeEstimateNote, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
-              ),
-            ],
             Expanded(child: _Timeline(trip: trip, tablet: tablet)),
           ],
         );
@@ -208,30 +204,12 @@ class _DateChips extends StatelessWidget {
           final day = days[index];
           final selected = sameDay(day, controller.selectedDate);
           final today = sameDay(day, controller.now);
-          final foreground = selected ? Colors.white : AppColors.ink;
-          final note = selected ? Colors.white : AppColors.secondary;
-          return Material(
-            color: selected ? AppColors.accent : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () => controller.selectDate(day),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 76,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('${day.month}.${day.day}', style: AppType.headline.copyWith(color: foreground)),
-                    Text(today ? '오늘' : weekdayKo(day), style: AppType.footnote.copyWith(color: note)),
-                  ],
-                ),
-              ),
-            ),
+          return DateToken(
+            label: '${day.month}.${day.day}',
+            note: today ? '오늘' : weekdayKo(day),
+            selected: selected,
+            width: 84,
+            onTap: () => controller.selectDate(day),
           );
         },
       ),
@@ -255,20 +233,11 @@ class _DateColumn extends StatelessWidget {
         final day = days[index];
         final selected = sameDay(day, controller.selectedDate);
         final today = sameDay(day, controller.now);
-        return InkWell(
+        return DateRailTile(
+          label: formatMonthDay(day),
+          note: today ? '${weekdayKo(day)} · 오늘' : weekdayKo(day),
+          selected: selected,
           onTap: () => controller.selectDate(day),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            color: selected ? AppColors.accentSoft : null,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(formatMonthDay(day), style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-                Text(today ? '${weekdayKo(day)} · 오늘' : weekdayKo(day), style: AppType.footnote),
-              ],
-            ),
-          ),
         );
       },
     );
@@ -293,7 +262,7 @@ class _Timeline extends StatelessWidget {
           return ListView(
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: const [Text('이 날짜의 일정이 없습니다.', style: AppType.body)],
+            children: const [QuietEmpty(message: '이 날짜의 일정이 없습니다.')],
           );
         }
         return ListView.separated(
