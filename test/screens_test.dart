@@ -398,6 +398,21 @@ void main() {
     expect(afterItems, lessThan(beforeItems));
   });
 
+  testWidgets('동기화 전에는 미백업 수정 건수 문구를 보여주지 않는다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(390, 844));
+    final controller = TripController();
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(controller.trips.first.pendingLocalEdits, greaterThan(0));
+    expect(find.textContaining('이 기기에만 있는 수정'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('hero-title')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('이 기기에만 있는 수정'), findsNothing);
+  });
+
   testWidgets('보통 폰의 일정 화면은 지도를 유지한다', (tester) async {
     await tester.runAsync(warmSampleMap);
     await _setView(tester, const Size(390, 844));

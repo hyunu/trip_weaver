@@ -102,10 +102,6 @@ class _HeroCard extends StatelessWidget {
           Text(formatRange(trip.start, trip.end), key: const Key('hero-period'), style: AppType.footnote),
           const SizedBox(height: 2),
           Text(citySummary(trip), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
-          if (trip.pendingLocalEdits > 0) ...[
-            const SizedBox(height: 2),
-            Text('이 기기에만 있는 수정 ${trip.pendingLocalEdits}건', style: AppType.footnote),
-          ],
           const SizedBox(height: AppSpace.sm),
           const Text('다음 일정', style: AppType.section),
           const SizedBox(height: AppSpace.xs),
@@ -221,10 +217,6 @@ class _TripCard extends StatelessWidget {
           Text('${citySummary(trip)} · ${trip.countryCode}', maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
           const SizedBox(height: 6),
           Text(nextScheduleLine(trip, controller.now), style: AppType.footnoteStrong),
-          if (trip.pendingLocalEdits > 0) ...[
-            const SizedBox(height: 2),
-            Text('이 기기에만 있는 수정 ${trip.pendingLocalEdits}건', style: AppType.footnote),
-          ],
         ],
       ),
     );
