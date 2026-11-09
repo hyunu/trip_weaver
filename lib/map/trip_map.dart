@@ -93,33 +93,42 @@ class _TripMapState extends State<TripMap> {
         final route = orderedVisitPins(widget.pins);
         final routeOffsets = [for (final pin in route) spotFor[pin.id]!];
         final estimate = routeEstimateLabel(visitRouteMeters(widget.pins), route.length);
-        return GestureDetector(
-          key: const Key('trip-map'),
-          onScaleStart: _onScaleStart,
-          onScaleUpdate: _onScaleUpdate,
-          child: ClipRect(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CustomPaint(painter: _TilePainter(camera: camera, images: OsmTileStore.instance.memory), size: size),
-                CustomPaint(painter: _RoutePainter(routeOffsets), size: size),
-                for (final pin in paintOrder) _pin(pin, spotFor[pin.id]!),
-                Positioned(
-                  left: 8,
-                  right: 8,
-                  bottom: 8,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(6)),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(estimate, key: const Key('route-estimate'), style: AppType.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
+        return Semantics(
+          container: true,
+          label: mapSemanticLabel(widget.pins, estimate),
+          child: GestureDetector(
+            key: const Key('trip-map'),
+            onScaleStart: _onScaleStart,
+            onScaleUpdate: _onScaleUpdate,
+            child: ClipRect(
+              // Pin spacing is laid out for fixed-size labels; each pin still
+              // carries its full name in semantics at any text scale.
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(painter: _TilePainter(camera: camera, images: OsmTileStore.instance.memory), size: size),
+                    CustomPaint(painter: _RoutePainter(routeOffsets), size: size),
+                    for (final pin in paintOrder) _pin(pin, spotFor[pin.id]!, size),
+                    Positioned(
+                      left: 8,
+                      right: 8,
+                      bottom: 8,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(6)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Text(estimate, key: const Key('route-estimate'), style: AppType.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -159,51 +168,87 @@ class _TripMapState extends State<TripMap> {
     return placed;
   }
 
-  Widget _pin(MapPin pin, Offset offset) {
+  /// Pins whose circle sits outside the frame are clipped to a sliver, so
+  /// screen readers skip them as sighted users do.
+  Widget _pinSemantics({required bool visible, required bool button, required String label, required VoidCallback? onTap, required Widget child}) {
+    if (!visible) return ExcludeSemantics(child: child);
+    return Semantics(button: button, label: label, excludeSemantics: true, onTap: onTap, child: child);
+  }
+
+  Widget _pin(MapPin pin, Offset offset, Size size) {
     const diameter = 28.0;
+    const labelWidth = 104.0;
+    final onTap = widget.onPinTap == null ? null : () => widget.onPinTap!(pin);
     return Positioned(
-      left: offset.dx - diameter / 2,
+      left: offset.dx - labelWidth / 2,
       top: offset.dy - diameter / 2,
-      child: GestureDetector(
-        key: Key('map-pin-${pin.id}'),
-        onTap: widget.onPinTap == null ? null : () => widget.onPinTap!(pin),
-        child: Opacity(
-          opacity: pin.past ? 0.28 : 1,
-          child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: diameter,
-              height: diameter,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: pin.nearby ? Colors.white : (pin.emphasized ? AppColors.ink : AppColors.accent),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: pin.emphasized ? 3 : 2),
-                boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
-              ),
-              child: Text(
-                pin.order?.toString() ?? '',
-                style: AppType.footnoteStrong.copyWith(color: pin.nearby ? AppColors.ink : Colors.white),
+      child: _pinSemantics(
+        visible: (Offset.zero & size).contains(offset),
+        button: onTap != null,
+        label: mapPinSemanticLabel(pin),
+        onTap: onTap,
+        child: GestureDetector(
+          key: Key('map-pin-${pin.id}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: labelWidth, minHeight: 48),
+            child: Opacity(
+              opacity: pin.past ? 0.45 : 1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: diameter,
+                    height: diameter,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: pin.nearby ? Colors.white : (pin.emphasized ? AppColors.ink : AppColors.accent),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: pin.emphasized ? 3 : 2),
+                      boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
+                    ),
+                    child: Text(
+                      pin.order?.toString() ?? '',
+                      style: AppType.footnoteStrong.copyWith(color: pin.nearby ? AppColors.ink : Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  DecoratedBox(
+                    decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(4)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      child: SizedBox(
+                        width: 96,
+                        child: Text(pin.label, textAlign: TextAlign.center, style: AppType.footnoteStrong, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            DecoratedBox(
-              decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(4)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                child: SizedBox(
-                  width: 96,
-                  child: Text(pin.label, textAlign: TextAlign.center, style: AppType.footnoteStrong, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
         ),
       ),
     );
   }
+}
+
+String mapSemanticLabel(List<MapPin> pins, String estimate) {
+  if (pins.isEmpty) return '지도, 표시할 장소 없음';
+  final visits = orderedVisitPins(pins).length;
+  return visits == 0 ? '지도, 장소 ${pins.length}곳' : '지도, 방문 $visits곳. $estimate';
+}
+
+String mapPinSemanticLabel(MapPin pin) {
+  final parts = <String>[
+    if (pin.order != null) '${pin.order}번 방문',
+    pin.label,
+    if (pin.emphasized) pin.order != null ? '다음 목적지' : '선택됨',
+    if (pin.nearby) '주변 장소',
+    if (pin.past) '지난 방문',
+  ];
+  return parts.join(', ');
 }
 
 class _RoutePainter extends CustomPainter {

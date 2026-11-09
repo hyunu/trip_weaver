@@ -25,7 +25,11 @@ class PlacePanel extends StatelessWidget {
     final showFacts = pane != FactPane.sources;
     final showSources = pane != FactPane.facts;
     return ListView(
-      key: Key(pane == FactPane.facts ? 'place-facts' : pane == FactPane.sources ? 'place-sources' : 'place-combined'),
+      key: Key(pane == FactPane.facts
+          ? 'place-facts'
+          : pane == FactPane.sources
+              ? 'place-sources'
+              : 'place-combined'),
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.fromLTRB(AppSpace.page, AppSpace.xs, AppSpace.page, AppSpace.lg),
@@ -88,8 +92,7 @@ class PlacePanel extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.md),
         ],
-        for (final field in factFieldOrder)
-          _FactBlock(field: field, claims: place.claimsFor(field), showValue: showFacts || showSources, showSources: showSources),
+        for (final field in factFieldOrder) _FactBlock(field: field, claims: place.claimsFor(field), showValue: showFacts || showSources, showSources: showSources),
         if (showSources) ...[
           const SectionLabel('후기'),
           Text(
@@ -212,9 +215,7 @@ class _SampleLimitState extends State<_SampleLimit> {
           ),
           if (open)
             Text(
-              widget.offline
-                  ? '연결이 없어 좌표, 주소, 영업시간을 다시 받지 않습니다. 화면에 있는 값은 마지막으로 이 기기에 둔 자료입니다.'
-                  : '좌표와 주소, 영업시간은 앱에 넣어 둔 예시입니다. 오늘 문을 여는지, 가격, 예약은 이 화면이 보증하지 않습니다.',
+              widget.offline ? '연결이 없어 좌표, 주소, 영업시간을 다시 받지 않습니다. 화면에 있는 값은 마지막으로 이 기기에 둔 자료입니다.' : '좌표와 주소, 영업시간은 앱에 넣어 둔 예시입니다. 오늘 문을 여는지, 가격, 예약은 이 화면이 보증하지 않습니다.',
               style: AppType.footnote,
             ),
         ],

@@ -22,8 +22,8 @@ class TripDraft {
     this.budgetCurrency = '',
     this.companionCount = 0,
     List<CityDraft>? cities,
-  }) : tasteTags = tasteTags ?? <String>[],
-       cities = cities ?? <CityDraft>[];
+  })  : tasteTags = tasteTags ?? <String>[],
+        cities = cities ?? <CityDraft>[];
 
   String title;
   String countryCode;

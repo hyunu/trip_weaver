@@ -43,10 +43,7 @@ class TripDetailScreen extends StatelessWidget {
               Text('이 기기에만 있는 수정 ${trip.pendingLocalEdits}건', style: AppType.footnote),
             ],
             const SectionLabel('다음 일정'),
-            if (next == null)
-              Text(trip.activeDays.isEmpty ? '적용된 일정이 없습니다.' : nextScheduleLine(trip, controller.now), style: AppType.body)
-            else
-              ScheduleBlock(item: next),
+            if (next == null) Text(trip.activeDays.isEmpty ? '적용된 일정이 없습니다.' : nextScheduleLine(trip, controller.now), style: AppType.body) else ScheduleBlock(item: next),
             const SizedBox(height: AppSpace.sm),
             AppButton(
               key: const Key('detail-open-itinerary'),

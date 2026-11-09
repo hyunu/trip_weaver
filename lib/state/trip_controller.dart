@@ -12,12 +12,15 @@ import 'trip_store.dart';
 
 class TripController extends ChangeNotifier {
   TripController({DateTime? now, SampleCatalog? catalog, TripStore? store})
-    : now = now ?? DateTime(2026, 11, 8, 10, 40),
-      _store = store {
+      : now = now ?? DateTime(2026, 11, 8, 10, 40),
+        _store = store {
     final seed = catalog ?? buildSampleCatalog();
     trips = seed.trips;
     places = seed.places;
-    _sampleTripIds = {for (final trip in seed.trips) if (trip.dataOriginMock) trip.id};
+    _sampleTripIds = {
+      for (final trip in seed.trips)
+        if (trip.dataOriginMock) trip.id
+    };
     currentTripId = seed.currentTripId;
     selectedDate = dateOnly(this.now);
     journalDate = dateOnly(this.now);

@@ -299,28 +299,28 @@ class EmptyPane extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
-                child: const Icon(CupertinoIcons.square_list, size: 22, color: AppColors.accent),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              Text(title, style: AppType.title, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpace.xs),
-              Text(message, style: AppType.body.copyWith(color: AppColors.secondary), textAlign: TextAlign.center),
-            ],
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+                  child: const Icon(CupertinoIcons.square_list, size: 22, color: AppColors.accent),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Text(title, style: AppType.title, textAlign: TextAlign.center),
+                const SizedBox(height: AppSpace.xs),
+                Text(message, style: AppType.body.copyWith(color: AppColors.secondary), textAlign: TextAlign.center),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -397,28 +397,28 @@ class SelectChip extends StatelessWidget {
       button: true,
       selected: selected,
       child: Material(
-      color: selected ? AppColors.accent : AppColors.card,
-      borderRadius: BorderRadius.circular(AppRadii.control),
-      child: InkWell(
-        onTap: onTap,
+        color: selected ? AppColors.accent : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.control),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: AppType.headline.copyWith(color: foreground)),
-              if (note != null) Text(note!, style: AppType.caption.copyWith(color: noteColor)),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(color: selected ? AppColors.accent : AppColors.line),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppType.headline.copyWith(color: foreground)),
+                if (note != null) Text(note!, style: AppType.caption.copyWith(color: noteColor)),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -492,20 +492,20 @@ class DateRailTile extends StatelessWidget {
       button: true,
       selected: selected,
       child: InkWell(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        color: selected ? AppColors.accentSoft : null,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-            const SizedBox(height: 2),
-            Text(note, style: AppType.caption.copyWith(color: selected ? AppColors.accent : AppColors.secondary)),
-          ],
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          color: selected ? AppColors.accentSoft : null,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
+              const SizedBox(height: 2),
+              Text(note, style: AppType.caption.copyWith(color: selected ? AppColors.accent : AppColors.secondary)),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
