@@ -16,6 +16,7 @@ class TripSnapshot {
     required this.nextSeq,
     this.journal = const {},
     this.exclusions = const {},
+    this.userPlaces = const [],
   });
 
   final List<Trip> trips;
@@ -23,6 +24,7 @@ class TripSnapshot {
   final int nextSeq;
   final Map<String, Map<String, String>> journal;
   final Map<String, ProposalExclusions> exclusions;
+  final List<Place> userPlaces;
 }
 
 class TripStoreCorruptException implements Exception {
@@ -95,6 +97,7 @@ String encodeTripSnapshot(TripSnapshot snapshot) {
         'slots': exclusions.slots.toList(),
       }),
     ),
+    if (snapshot.userPlaces.isNotEmpty) 'userPlaces': snapshot.userPlaces.map(_placeToJson).toList(),
   });
 }
 
@@ -116,12 +119,79 @@ TripSnapshot decodeTripSnapshot(String encoded) {
   final seq = raw['nextSeq'];
   final current = raw['currentTripId'];
   final version = raw['version'] is int ? raw['version'] as int : 1;
+  final userPlaces = <Place>[];
+  final placeList = raw['userPlaces'];
+  if (placeList is List) {
+    for (final item in placeList) {
+      if (item is Map) userPlaces.add(_placeFromJson(item));
+    }
+  }
   return TripSnapshot(
     trips: trips,
     currentTripId: current is String && ids.contains(current) ? current : null,
     nextSeq: math.max(seq is int ? seq : 100, _seqAfter(trips)),
     journal: version >= 2 ? _journalFromJson(raw['journal']) : const {},
     exclusions: version >= 2 ? _exclusionsFromJson(raw['exclusions']) : const {},
+    userPlaces: userPlaces,
+  );
+}
+
+Map<String, Object?> _placeToJson(Place place) {
+  return {
+    'id': place.id,
+    'name': place.name,
+    'localName': place.localName,
+    'category': place.category.name,
+    'cityName': place.cityName,
+    'dataOriginMock': place.dataOriginMock,
+    'aiOrderSentence': place.aiOrderSentence,
+    'claims': place.claims.map(_claimToJson).toList(),
+  };
+}
+
+Place _placeFromJson(Map raw) {
+  final claims = <Claim>[];
+  final claimList = raw['claims'];
+  if (claimList is List) {
+    for (final item in claimList) {
+      if (item is Map) claims.add(_claimFromJson(item));
+    }
+  }
+  return Place(
+    id: '${raw['id']}',
+    name: '${raw['name'] ?? ''}',
+    localName: raw['localName'] as String?,
+    category: _enum(PlaceCategory.values, raw['category'], PlaceCategory.attraction),
+    cityName: '${raw['cityName'] ?? ''}',
+    dataOriginMock: raw['dataOriginMock'] == true,
+    aiOrderSentence: raw['aiOrderSentence'] as String?,
+    claims: claims,
+  );
+}
+
+Map<String, Object?> _claimToJson(Claim claim) {
+  return {
+    'field': claim.field,
+    'value': claim.value,
+    'validity': claim.validity.name,
+    'sourceName': claim.sourceName,
+    'sourceKind': claim.sourceKind.name,
+    'sourceUrl': claim.sourceUrl,
+    'collectedAt': claim.collectedAt?.toIso8601String(),
+    'verifiedAt': claim.verifiedAt?.toIso8601String(),
+  };
+}
+
+Claim _claimFromJson(Map raw) {
+  return Claim(
+    field: '${raw['field'] ?? ''}',
+    value: raw['value'] as String?,
+    validity: _enum(FactValidity.values, raw['validity'], FactValidity.unknown),
+    sourceName: '${raw['sourceName'] ?? ''}',
+    sourceKind: _enum(SourceKind.values, raw['sourceKind'], SourceKind.user),
+    sourceUrl: raw['sourceUrl'] as String?,
+    collectedAt: _date(raw['collectedAt']),
+    verifiedAt: _date(raw['verifiedAt']),
   );
 }
 

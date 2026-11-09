@@ -160,10 +160,28 @@ class _ExploreFilters extends StatelessWidget {
           const Text('도시 위치가 확인되지 않았습니다.', style: AppType.body),
           const SizedBox(height: 8),
           AppButton(label: '도시 편집으로 이동', filled: false, onPressed: controller.openCityEdit),
-        ] else if (results.isEmpty)
-          const QuietEmpty(message: '이 조건의 장소가 없습니다.')
-        else
-          for (final place in results) _PlaceCard(place: place, tablet: tablet),
+        ] else ...[
+          if (!trip.dataOriginMock) ...[
+            const SizedBox(height: 4),
+            AppButton(
+              key: const Key('add-user-place'),
+              label: '직접 장소 추가',
+              filled: false,
+              onPressed: () {
+                final city = controller.selectedCity;
+                if (city != null) _AddPlaceSheet.open(context, city.name);
+              },
+            ),
+          ],
+          if (results.isEmpty)
+            QuietEmpty(
+              message: trip.dataOriginMock ? '이 조건의 장소가 없습니다.' : '이 조건의 장소가 없습니다. 직접 장소를 추가해 보세요.',
+            )
+          else ...[
+            const SizedBox(height: 4),
+            for (final place in results) _PlaceCard(place: place, tablet: tablet),
+          ],
+        ],
       ],
     );
   }
@@ -172,7 +190,10 @@ class _ExploreFilters extends StatelessWidget {
 Future<void> _showCatalogInfo(BuildContext context, {required bool sample, required bool offline}) {
   final lines = <String>[
     if (offline) '오프라인입니다. 새 장소는 받지 않고, 찾기와 분류는 이 기기에 있는 목록만 거릅니다.',
-    if (sample) '이 기기의 샘플 장소입니다. 검색 결과가 아닙니다. 추천 문장은 이유이고, 영업시간 배지는 오늘 영업을 보증하지 않습니다.',
+    if (sample)
+      '이 기기의 샘플 장소(dataOriginMock)입니다. 검색 결과가 아닙니다. 추천 문장은 이유이고, 영업시간 배지는 오늘 영업을 보증하지 않습니다.',
+    if (!sample && !offline)
+      '직접 추가한 장소와 이 기기에 저장된 목록입니다. 외부 장소 API는 연결되지 않았습니다.',
     sample ? '순서는 샘플에 넣은 순서입니다. 후기 점수로 줄을 세우지 않습니다.' : '후기 자료가 연결되지 않아 추천 순서가 없습니다.',
   ];
   return showModalBottomSheet<void>(
@@ -267,9 +288,23 @@ class _CatalogState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!sample && !offline) return const SizedBox.shrink();
     final controller = TripScope.of(context);
     final filtered = controller.searchQuery.trim().isNotEmpty || controller.categoryFilter != null;
+    if (!sample && !offline) {
+      return Container(
+        key: const Key('explore-catalog-state'),
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(color: const Color(0xFFE8F4EC), borderRadius: BorderRadius.circular(10)),
+        child: Text(
+          '직접 추가한 장소와 이 기기에 저장된 목록을 보여 줍니다. 샘플 여행과 달리 외부 장소 API는 연결되지 않았습니다.',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: AppType.footnote,
+        ),
+      );
+    }
     final String title;
     if (offline && sample) {
       title = '오프라인 · 저장된 샘플만';
@@ -301,6 +336,94 @@ class _CatalogState extends StatelessWidget {
               style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 4)),
               child: Text('필터 지우기', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddPlaceSheet extends StatefulWidget {
+  const _AddPlaceSheet({required this.cityName});
+
+  final String cityName;
+
+  static Future<void> open(BuildContext context, String cityName) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: _AddPlaceSheet(cityName: cityName),
+      ),
+    );
+  }
+
+  @override
+  State<_AddPlaceSheet> createState() => _AddPlaceSheetState();
+}
+
+class _AddPlaceSheetState extends State<_AddPlaceSheet> {
+  final _nameController = TextEditingController();
+  PlaceCategory _category = PlaceCategory.attraction;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final controller = TripScope.of(context);
+    final error = controller.addUserPlace(name: _nameController.text, category: _category, cityName: widget.cityName);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('직접 장소 추가', style: AppType.headline),
+          const SizedBox(height: 4),
+          Text('${widget.cityName} · 사용자 입력 (dataOriginMock 아님)', style: AppType.footnote),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('user-place-name'),
+            controller: _nameController,
+            style: AppType.body,
+            decoration: AppFields.decoration('장소 이름'),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<PlaceCategory>(
+            key: const Key('user-place-category'),
+            initialValue: _category,
+            decoration: AppFields.decoration('분류'),
+            items: [
+              for (final category in PlaceCategory.values)
+                DropdownMenuItem(value: category, child: Text(categoryLabel(category), style: AppType.body)),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _category = value);
+            },
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: AppType.footnote.copyWith(color: AppColors.danger)),
+          ],
+          const SizedBox(height: 12),
+          AppButton(key: const Key('user-place-save'), label: '추가', onPressed: _save),
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/countries.dart';
@@ -6,6 +8,9 @@ import '../logic/propose.dart';
 import '../logic/schedule.dart';
 import '../logic/trip_rules.dart';
 import '../logic/city_lookup.dart';
+import '../logic/geocoder.dart';
+import '../logic/user_place.dart';
+import '../map/geo.dart';
 import '../model/journal.dart';
 import '../model/models.dart';
 import 'trip_store.dart';
@@ -20,13 +25,15 @@ class TripController extends ChangeNotifier {
   @visibleForTesting
   static DateTime? debugFixedNow;
 
-  TripController({DateTime? now, SampleCatalog? catalog, TripStore? store})
+  TripController({DateTime? now, SampleCatalog? catalog, TripStore? store, CityGeocoder? geocoder})
     : _explicitNow = now,
-      _store = store {
+      _store = store,
+      geocoder = geocoder ?? OfflineSampleGeocoder() {
     _now = _readNow();
     final seed = catalog ?? buildSampleCatalog();
     trips = seed.trips;
-    places = seed.places;
+    places = List<Place>.of(seed.places);
+    _samplePlaceIds = {for (final place in seed.places) place.id};
     _sampleTripIds = {
       for (final trip in seed.trips)
         if (trip.dataOriginMock) trip.id
@@ -66,6 +73,8 @@ class TripController extends ChangeNotifier {
       a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour && a.minute == b.minute;
 
   bool showReferenceClock([Trip? trip]) => fixedClock || (trip?.dataOriginMock ?? false);
+
+  final CityGeocoder geocoder;
   late List<Trip> trips;
   late List<Place> places;
   String? currentTripId;
@@ -89,6 +98,8 @@ class TripController extends ChangeNotifier {
   String searchQuery = '';
   final Map<String, String> verificationNotes = {};
   final Map<String, List<GeoCandidate>> cityCandidates = {};
+  final Set<String> locatingCityIds = {};
+  final Map<String, String> citySearchQueries = {};
   final Set<String> relocatingCityIds = {};
   final Map<String, double> scrollOffsets = {};
   final Map<String, ProposalExclusions> _proposalExclusions = {};
@@ -96,6 +107,7 @@ class TripController extends ChangeNotifier {
   int _seq = 100;
   final TripStore? _store;
   late final Set<String> _sampleTripIds;
+  late final Set<String> _samplePlaceIds;
   Future<void> _saveChain = Future<void>.value();
 
   Future<void> get persistenceSettled => _saveChain;
@@ -126,6 +138,7 @@ class TripController extends ChangeNotifier {
     _proposalExclusions
       ..clear()
       ..addAll(snapshot.exclusions);
+    mergeUserPlaces(snapshot.userPlaces);
     final trip = current;
     if (trip == null || trip.cities.isEmpty) {
       selectedCityId = null;
@@ -140,6 +153,7 @@ class TripController extends ChangeNotifier {
     nextSeq: _seq,
     journal: journal.export(),
     exclusions: Map<String, ProposalExclusions>.from(_proposalExclusions),
+    userPlaces: _userPlacesForSave(),
   );
 
   void clearRestoreNotice() {
@@ -245,6 +259,22 @@ class TripController extends ChangeNotifier {
   }
 
   bool get homeShowsSample => trips.any((trip) => trip.dataOriginMock);
+
+  void mergeUserPlaces(Iterable<Place> saved) {
+    for (final place in saved) {
+      if (_samplePlaceIds.contains(place.id)) continue;
+      final index = places.indexWhere((item) => item.id == place.id);
+      if (index >= 0) {
+        places[index] = place;
+      } else {
+        places.add(place);
+      }
+    }
+  }
+
+  List<Place> _userPlacesForSave() => places.where((place) => !_samplePlaceIds.contains(place.id)).toList();
+
+  GeoPoint? cityGeo(City? city) => geoFromLabel(city?.coordinateLabel);
 
   void saveScroll(String key, double offset) => scrollOffsets[key] = offset;
 
@@ -549,14 +579,14 @@ class TripController extends ChangeNotifier {
 
   /// Reopens candidate picking for a city whose location is already confirmed.
   /// The confirmed coordinate stays until another candidate is picked.
-  void startRelocate(String cityId) {
+  Future<void> startRelocate(String cityId) async {
     if (_cityById(cityId) == null) return;
     relocatingCityIds.add(cityId);
     if (offline) {
       notifyListeners();
       return;
     }
-    findCandidates(cityId);
+    await findCandidates(cityId);
   }
 
   void cancelRelocate(String cityId) {
@@ -574,10 +604,59 @@ class TripController extends ChangeNotifier {
     return null;
   }
 
-  void findCandidates(String cityId) {
-    if (offline) return;
-    cityCandidates[cityId] = candidatesForCity(_cityById(cityId)?.name ?? '');
+  String citySearchQuery(String cityId) {
+    final city = _cityById(cityId);
+    if (city == null) return '';
+    return citySearchQueries.putIfAbsent(cityId, () => city.name);
+  }
+
+  void setCitySearchQuery(String cityId, String value) {
+    citySearchQueries[cityId] = value;
     notifyListeners();
+  }
+
+  Future<void> findCandidates(String cityId, {String? query}) async {
+    if (offline) return;
+    final city = _cityById(cityId);
+    if (city == null) return;
+    final text = (query ?? citySearchQuery(cityId)).trim();
+    if (text.isEmpty) return;
+    locatingCityIds.add(cityId);
+    cityCandidates.remove(cityId);
+    notifyListeners();
+    final results = await geocoder.search(text, countryCode: city.countryCode);
+    locatingCityIds.remove(cityId);
+    cityCandidates[cityId] = results;
+    notifyListeners();
+  }
+
+  Future<void> searchCityAutocomplete(String cityId, String query) async {
+    setCitySearchQuery(cityId, query);
+    if (offline || query.trim().length < 2) {
+      cityCandidates.remove(cityId);
+      notifyListeners();
+      return;
+    }
+    await findCandidates(cityId, query: query);
+  }
+
+  void pickMapPoint(String cityId, GeoPoint point, {String label = '지도에서 고른 위치'}) {
+    pickCandidate(cityId, candidateFromPoint(point, label: label));
+  }
+
+  String? addUserPlace({required String name, required PlaceCategory category, required String cityName, GeoPoint? point}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '장소 이름을 입력하세요.';
+    final city = cityName.trim();
+    if (city.isEmpty) return '도시 이름이 없습니다.';
+    final trip = current;
+    final geo = point ?? cityGeo(selectedCity) ?? const GeoPoint(0, 0);
+    if (geo.lat == 0 && geo.lon == 0) return '도시 좌표가 없습니다. 도시 위치를 먼저 확인하세요.';
+    final id = 'place-${_seq++}';
+    places.add(buildUserPlace(id: id, name: trimmed, category: category, cityName: city, point: geo));
+    if (trip != null) trip.pendingLocalEdits += 1;
+    notifyListeners();
+    return null;
   }
 
   void pickCandidate(String cityId, GeoCandidate candidate) {
