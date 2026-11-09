@@ -1,0 +1,18 @@
+{
+  "version": 8,
+  "name": "TripWeave OpenStreetMap",
+  "metadata": {
+    "tripweave:note": "MapLibre style. The raster layer is the OpenStreetMap standard tile layer."
+  },
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "attribution": "© OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {"id": "osm-raster", "type": "raster", "source": "osm"}
+  ]
+}
