@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'logic/geocoder.dart';
+import 'screens/onboarding_screen.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/scope.dart';
 import 'state/connectivity.dart';
@@ -142,7 +143,9 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
           ? const _BootSplash()
           : TripScope(
               controller: ready,
-              child: LiveClockScope(controller: ready, child: const AdaptiveShell()),
+              child: ready.showOnboarding
+                  ? const OnboardingScreen()
+                  : LiveClockScope(controller: ready, child: const AdaptiveShell()),
             ),
     );
   }

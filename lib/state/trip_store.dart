@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../logic/propose.dart';
 import '../model/models.dart';
 
-const tripSnapshotVersion = 2;
+const tripSnapshotVersion = 3;
 
 class TripSnapshot {
   const TripSnapshot({
@@ -17,6 +17,8 @@ class TripSnapshot {
     this.journal = const {},
     this.exclusions = const {},
     this.userPlaces = const [],
+    this.onboardingComplete = true,
+    this.bundledSamplesActive = false,
   });
 
   final List<Trip> trips;
@@ -25,6 +27,8 @@ class TripSnapshot {
   final Map<String, Map<String, String>> journal;
   final Map<String, ProposalExclusions> exclusions;
   final List<Place> userPlaces;
+  final bool onboardingComplete;
+  final bool bundledSamplesActive;
 }
 
 class TripStoreCorruptException implements Exception {
@@ -98,6 +102,8 @@ String encodeTripSnapshot(TripSnapshot snapshot) {
       }),
     ),
     if (snapshot.userPlaces.isNotEmpty) 'userPlaces': snapshot.userPlaces.map(_placeToJson).toList(),
+    'onboardingComplete': snapshot.onboardingComplete,
+    'bundledSamplesActive': snapshot.bundledSamplesActive,
   });
 }
 
@@ -126,6 +132,12 @@ TripSnapshot decodeTripSnapshot(String encoded) {
       if (item is Map) userPlaces.add(_placeFromJson(item));
     }
   }
+  final onboardingComplete = version >= 3
+      ? raw['onboardingComplete'] == true
+      : trips.isNotEmpty;
+  final bundledSamplesActive = version >= 3
+      ? raw['bundledSamplesActive'] == true
+      : trips.any((trip) => trip.dataOriginMock);
   return TripSnapshot(
     trips: trips,
     currentTripId: current is String && ids.contains(current) ? current : null,
@@ -133,6 +145,8 @@ TripSnapshot decodeTripSnapshot(String encoded) {
     journal: version >= 2 ? _journalFromJson(raw['journal']) : const {},
     exclusions: version >= 2 ? _exclusionsFromJson(raw['exclusions']) : const {},
     userPlaces: userPlaces,
+    onboardingComplete: onboardingComplete,
+    bundledSamplesActive: bundledSamplesActive,
   );
 }
 
