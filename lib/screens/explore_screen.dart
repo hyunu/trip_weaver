@@ -231,6 +231,7 @@ class _PlaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
     final link = controller.linkFor(place.id);
+    final scheduled = controller.scheduledDaysFor(place.id);
     final selected = controller.selectedPlaceId == place.id;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -270,7 +271,8 @@ class _PlaceCard extends StatelessWidget {
                   Text(placeSuggestion(place.id)!, style: AppType.body),
                 ],
                 const SizedBox(height: 4),
-                Text(decisionLabel(link.decision, saved: link.saved), style: AppType.footnoteStrong),
+                if (scheduled.isNotEmpty) Text(scheduleDaysLabel(scheduled), style: AppType.footnoteStrong),
+                if (scheduled.isEmpty) Text(decisionLabel(link.decision, saved: link.saved), style: AppType.footnoteStrong),
               ],
             ),
           ),

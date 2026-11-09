@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../data/sample_catalog.dart';
 import '../format.dart';
+import '../logic/schedule.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
 import '../theme/app_theme.dart';
@@ -65,30 +66,55 @@ class PlacePanel extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpace.md),
-          AppButton(
-            label: '관심 저장',
-            filled: false,
-            selected: link.saved,
-            onPressed: () => controller.toggleSaved(place.id),
+          Row(
+            children: [
+              IconButton(
+                key: const Key('place-save'),
+                tooltip: '관심 저장',
+                onPressed: () => controller.toggleSaved(place.id),
+                icon: Icon(
+                  link.saved ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                  color: link.saved ? AppColors.danger : AppColors.secondary,
+                ),
+              ),
+              const SizedBox(width: AppSpace.xs),
+              Expanded(
+                child: AppButton(
+                  key: const Key('place-add-schedule'),
+                  label: '일정에 추가',
+                  onPressed: place.suspended
+                      ? null
+                      : () => _ScheduleDateSheet.open(context, place: place),
+                ),
+              ),
+              IconButton(
+                key: const Key('place-exclude'),
+                tooltip: link.decision == Decision.excluded ? '제외 해제' : '일정 제안에서 제외',
+                onPressed: () => controller.setDecision(place.id, link.decision == Decision.excluded ? Decision.none : Decision.excluded),
+                icon: Icon(
+                  CupertinoIcons.ellipsis_circle,
+                  color: link.decision == Decision.excluded ? AppColors.danger : AppColors.secondary,
+                ),
+              ),
+            ],
           ),
           if (link.saved) ...[
             const SizedBox(height: AppSpace.xxs),
             const Text('이 여행에 저장됨', style: AppType.footnote),
           ],
-          const SizedBox(height: AppSpace.xs),
-          AppButton(
-            label: '일정에 선택',
-            filled: link.decision != Decision.selected,
-            selected: link.decision == Decision.selected,
-            onPressed: () => controller.setDecision(place.id, Decision.selected),
-          ),
-          const SizedBox(height: AppSpace.xs),
-          AppButton(
-            label: link.decision == Decision.excluded ? '제외됨' : '제외',
-            filled: false,
-            destructive: true,
-            selected: link.decision == Decision.excluded,
-            onPressed: () => controller.setDecision(place.id, link.decision == Decision.excluded ? Decision.none : Decision.excluded),
+          if (link.decision == Decision.excluded) ...[
+            const SizedBox(height: AppSpace.xxs),
+            const Text('일정 자동 제안에서 빠집니다', style: AppType.footnote),
+          ],
+          Builder(
+            builder: (context) {
+              final scheduled = controller.scheduledDaysFor(place.id);
+              if (scheduled.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: AppSpace.xxs),
+                child: Text(scheduleDaysLabel(scheduled), style: AppType.footnoteStrong),
+              );
+            },
           ),
           const SizedBox(height: AppSpace.md),
         ],
@@ -180,6 +206,71 @@ class _FactBlock extends StatelessWidget {
             const SizedBox(height: AppSpace.xs),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ScheduleDateSheet extends StatelessWidget {
+  const _ScheduleDateSheet({required this.place});
+
+  final Place place;
+
+  static Future<void> open(BuildContext context, {required Place place}) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => _ScheduleDateSheet(place: place),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final trip = controller.current!;
+    final days = tripDays(trip);
+    final scheduled = controller.scheduledDaysFor(place.id).toSet();
+    return SafeArea(
+      child: Padding(
+        key: const Key('schedule-date-sheet'),
+        padding: const EdgeInsets.fromLTRB(AppSpace.page, 0, AppSpace.page, AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('${place.name} · 날짜 고르기', style: AppType.headline),
+            const SizedBox(height: AppSpace.xs),
+            const Text('고른 날짜의 적용된 일정에 바로 넣습니다. 새로 제안받으면 빈 시간을 채웁니다.', style: AppType.footnote),
+            const SizedBox(height: AppSpace.sm),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final day in days)
+                    ListTile(
+                      key: Key('schedule-pick-${day.month}-${day.day}'),
+                      enabled: !scheduled.contains(dateOnly(day)),
+                      title: Text('${formatDot(day)} (${weekdayKo(day)})', style: AppType.body),
+                      subtitle: scheduled.contains(dateOnly(day))
+                          ? const Text('이미 일정에 있음', style: AppType.footnote)
+                          : Text(trip.cityOn(day)?.name ?? '도시 미배정', style: AppType.footnote),
+                      trailing: const Icon(CupertinoIcons.plus_circle, color: AppColors.accent),
+                      onTap: scheduled.contains(dateOnly(day))
+                          ? null
+                          : () {
+                              final error = controller.addPlaceToSchedule(place.id, day);
+                              if (error != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+                                return;
+                              }
+                              Navigator.pop(context);
+                            },
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

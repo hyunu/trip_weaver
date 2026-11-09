@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/countries.dart';
 import '../data/sample_catalog.dart';
+import '../logic/add_to_schedule.dart';
 import '../logic/propose.dart';
 import '../format.dart';
 import '../logic/schedule.dart';
@@ -449,6 +450,28 @@ class TripController extends ChangeNotifier {
     link.decision = decision;
     trip.pendingLocalEdits += 1;
     notifyListeners();
+  }
+
+  List<DateTime> scheduledDaysFor(String placeId) {
+    final trip = current;
+    if (trip == null) return const [];
+    return daysWithPlace(trip, placeId);
+  }
+
+  /// Puts [placeId] on [day] in the active schedule immediately (locked pin).
+  String? addPlaceToSchedule(String placeId, DateTime day) {
+    final trip = current;
+    final place = placeById(placeId);
+    if (trip == null || place == null) return '장소를 찾을 수 없습니다.';
+    final error = insertPlaceOnDay(trip, place, day, 'sched-${_seq++}');
+    if (error != null) return error;
+    final link = trip.links.putIfAbsent(placeId, TripPlaceLink.new);
+    if (link.decision == Decision.excluded) link.decision = Decision.none;
+    trip.pendingLocalEdits += 1;
+    selectedDate = dateOnly(day);
+    itineraryNotice = '${day.month}월 ${day.day}일 일정에 ${place.name}을(를) 넣었습니다. 새로 제안받으면 빈 시간을 채웁니다.';
+    notifyListeners();
+    return null;
   }
 
   void toggleSaved(String placeId) {
