@@ -28,7 +28,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('screen-title-explore')), findsOneWidget);
     expect(find.byKey(const Key('trip-map')), findsOneWidget);
-    expect(find.text('이 도시에서 찾기'), findsOneWidget);
+    expect(find.byKey(const Key('place-query')), findsOneWidget);
     await _reveal(tester, find.byKey(const Key('place-card-gallery')), find.byKey(const Key('explore-scroll')));
     expect(find.byKey(const Key('place-card-gallery')), findsOneWidget);
     await _reveal(tester, find.byKey(const Key('place-card-market')), find.byKey(const Key('explore-scroll')));
@@ -38,7 +38,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('충밍'));
     await tester.pumpAndSettle();
-    expect(find.text('이 도시에서 찾기'), findsNothing);
+    expect(find.byKey(const Key('trip-map')), findsNothing);
     expect(find.text('도시 위치가 확인되지 않았습니다.'), findsWidgets);
     expect(find.text('도시 편집으로 이동'), findsOneWidget);
 
@@ -176,7 +176,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.selectedPlaceId, 'gallery');
     expect(find.byKey(const Key('place-facts')), findsOneWidget);
-    expect(find.byKey(const Key('search-city')), findsOneWidget);
+    expect(find.byKey(const Key('trip-map')), findsOneWidget);
 
     await _setView(tester, const Size(390, 844));
     await tester.pumpWidget(TripWeaveApp(controller: controller));
@@ -184,7 +184,7 @@ void main() {
     expect(controller.selectedPlaceId, 'gallery');
     expect(controller.explorePushed, isTrue);
     expect(find.text('루자쭈이 전망'), findsWidgets);
-    expect(find.byKey(const Key('search-city')), findsNothing);
+    expect(find.byKey(const Key('place-combined')), findsOneWidget);
   });
 }
 
