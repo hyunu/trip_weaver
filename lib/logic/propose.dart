@@ -371,3 +371,43 @@ List<String> _mealFields(Place? place) {
   if (place == null || place.claimsFor('price').isEmpty) fields.add('가격');
   return fields;
 }
+
+/// One visit or meal block for a place the user placed on the schedule.
+PlanItem planItemForPlace({
+  required String id,
+  required Place place,
+  required DateTime start,
+  required DateTime end,
+  bool locked = false,
+}) {
+  if (place.category == PlaceCategory.restaurant) {
+    return PlanItem(
+      id: id,
+      kind: ItemKind.meal,
+      title: place.name,
+      placeId: place.id,
+      categoryLabel: '음식점',
+      start: start,
+      end: end,
+      unconfirmedFields: _mealFields(place),
+      dwellIsProposal: true,
+      locked: locked,
+      note: '탐색에서 넣은 식사입니다.',
+    );
+  }
+  return PlanItem(
+    id: id,
+    kind: ItemKind.stay,
+    title: place.name,
+    placeId: place.id,
+    categoryLabel: categoryName(place.category),
+    start: start,
+    end: end,
+    unconfirmedFields: _unconfirmed(place),
+    warnings: _warnings(place),
+    hoursConflict: _hoursConflict(place),
+    dwellIsProposal: true,
+    locked: locked,
+    note: '탐색에서 넣은 방문입니다.',
+  );
+}

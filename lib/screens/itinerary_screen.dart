@@ -213,7 +213,7 @@ class _ItineraryHeader extends StatelessWidget {
                     Text(summary.line, key: const Key('proposal-summary'), style: AppType.footnoteStrong.copyWith(color: AppColors.warningFg)),
                     if (summary.visits == 0 && summary.pinned == 0)
                       Text(
-                        '탐색에서 「일정에 선택」한 장소가 없어 식사 자리만 제안했습니다.',
+                        '탐색에서 일정에 넣은 장소가 없어 식사 자리만 제안했습니다.',
                         key: const Key('proposal-no-places'),
                         style: AppType.footnote.copyWith(color: AppColors.warningFg),
                       ),

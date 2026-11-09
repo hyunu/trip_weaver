@@ -135,6 +135,45 @@ PlanItem? nextDestination(Trip trip, DateTime now) {
 
 DateTime pinEnd(PlanItem item) => item.end ?? item.start!.add(const Duration(minutes: 30));
 
+/// Earliest start at or after [from] where [minutes] fits between timed items.
+DateTime fitAround(List<PlanItem> items, DateTime from, int minutes) {
+  final pins = items.where((item) => item.start != null).toList();
+  var start = from;
+  var moved = true;
+  while (moved) {
+    moved = false;
+    for (final pin in pins) {
+      if (pin.start == null) continue;
+      final end = start.add(Duration(minutes: minutes));
+      if (start.isBefore(pinEnd(pin)) && end.isAfter(pin.start!)) {
+        start = pinEnd(pin);
+        moved = true;
+      }
+    }
+  }
+  return start;
+}
+
+/// Morning anchor or the end of the last timed item on [day].
+DateTime preferredStartAfter(List<PlanItem> items, DateTime day) {
+  var cursor = DateTime(day.year, day.month, day.day, 9);
+  for (final item in items) {
+    if (item.start == null) continue;
+    final end = pinEnd(item);
+    if (end.isAfter(cursor)) cursor = end;
+  }
+  return cursor;
+}
+
+List<DateTime> daysWithPlace(Trip trip, String placeId) {
+  final days = <DateTime>[];
+  for (final plan in trip.activeDays) {
+    if (plan.items.any((item) => item.placeId == placeId)) days.add(dateOnly(plan.date));
+  }
+  days.sort();
+  return days;
+}
+
 bool overlapsInTime(PlanItem a, PlanItem b) {
   if (a.start == null || b.start == null) return false;
   return a.start!.isBefore(pinEnd(b)) && b.start!.isBefore(pinEnd(a));

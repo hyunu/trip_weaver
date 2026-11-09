@@ -91,6 +91,11 @@ String statusLabel(TripStatus status) {
   }
 }
 
+String scheduleDaysLabel(List<DateTime> days) {
+  if (days.isEmpty) return '';
+  return '일정 ${days.map((day) => '${day.month}.${day.day}').join(', ')}';
+}
+
 String decisionLabel(Decision decision, {required bool saved}) {
   switch (decision) {
     case Decision.selected:
