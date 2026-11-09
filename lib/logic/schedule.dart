@@ -63,6 +63,7 @@ Trip? nearestUpcomingTrip(Iterable<Trip> trips, DateTime now) {
   for (final trip in trips) {
     if (isOngoing(trip, now) || isPast(trip, now)) continue;
     final days = daysUntilStart(trip, now);
+    if (days < 0) continue;
     if (days < best) {
       best = days;
       pick = trip;
