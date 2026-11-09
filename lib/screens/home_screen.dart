@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
@@ -23,11 +24,9 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const PageHeader(title: '여행', titleKey: Key('screen-title-home')),
-            const Spacer(),
-            const Text('여행이 없습니다.', style: AppType.body),
-            const SizedBox(height: 16),
-            Align(alignment: Alignment.centerRight, child: AppButton(label: '여행 만들기', onPressed: controller.openCreate)),
-            const Spacer(),
+            const Expanded(child: Center(child: QuietEmpty(title: '여행이 없습니다.', message: '날짜와 도시를 정하면 이 목록에 나타납니다.', icon: CupertinoIcons.airplane))),
+            Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320), child: AppButton(label: '여행 만들기', onPressed: controller.openCreate))),
+            const SizedBox(height: 24),
           ],
         ),
       );
@@ -82,11 +81,7 @@ class _HeroCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
-      ),
+      decoration: AppDecor.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -146,8 +141,8 @@ class _TripCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.card),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
@@ -161,7 +156,7 @@ class _TripCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadii.card),
               border: Border.all(color: selected ? AppColors.accent : AppColors.line, width: selected ? 1.5 : 1),
             ),
             child: Column(

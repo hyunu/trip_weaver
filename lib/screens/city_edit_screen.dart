@@ -43,7 +43,7 @@ class _CityEditor extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.line)),
+      decoration: AppDecor.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
