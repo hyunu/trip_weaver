@@ -6,6 +6,7 @@ import '../logic/propose.dart';
 import '../logic/schedule.dart';
 import '../logic/trip_rules.dart';
 import '../logic/city_lookup.dart';
+import '../model/journal.dart';
 import '../model/models.dart';
 
 class TripController extends ChangeNotifier {
@@ -46,6 +47,7 @@ class TripController extends ChangeNotifier {
   final Map<String, String> verificationNotes = {};
   final Map<String, List<GeoCandidate>> cityCandidates = {};
   final Map<String, double> scrollOffsets = {};
+  final JournalBook journal = JournalBook();
   int _seq = 100;
 
   Trip? get current {
@@ -170,6 +172,20 @@ class TripController extends ChangeNotifier {
 
   void selectJournalDate(DateTime date) {
     journalDate = dateOnly(date);
+    notifyListeners();
+  }
+
+  String? journalText([DateTime? day]) {
+    final trip = current;
+    if (trip == null) return null;
+    return journal.text(trip.id, day ?? journalDate);
+  }
+
+  void saveJournal(String raw) {
+    final trip = current;
+    if (trip == null) return;
+    if (!journal.save(trip.id, journalDate, raw)) return;
+    trip.pendingLocalEdits += 1;
     notifyListeners();
   }
 

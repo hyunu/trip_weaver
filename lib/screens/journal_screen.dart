@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../format.dart';
 import '../logic/schedule.dart';
+import '../model/journal.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
 import '../theme/app_theme.dart';
@@ -96,7 +97,8 @@ class _DateStrip extends StatelessWidget {
         itemBuilder: (context, index) {
           final day = days[index];
           final selected = sameDay(day, controller.journalDate);
-          return _DateChip(day: day, selected: selected, onTap: () => controller.selectJournalDate(day));
+          final noted = controller.journalText(day) != null;
+          return _DateChip(day: day, selected: selected, noted: noted, onTap: () => controller.selectJournalDate(day));
         },
       ),
     );
@@ -118,6 +120,7 @@ class _DateList extends StatelessWidget {
       itemBuilder: (context, index) {
         final day = days[index];
         final selected = sameDay(day, controller.journalDate);
+        final noted = controller.journalText(day) != null;
         return InkWell(
           onTap: () => controller.selectJournalDate(day),
           child: Container(
@@ -128,7 +131,7 @@ class _DateList extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(formatMonthDay(day), style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-                const Text('기록 없음', style: AppType.footnote),
+                Text(noted ? '기록 있음' : '기록 없음', style: AppType.footnote),
               ],
             ),
           ),
@@ -139,10 +142,11 @@ class _DateList extends StatelessWidget {
 }
 
 class _DateChip extends StatelessWidget {
-  const _DateChip({required this.day, required this.selected, required this.onTap});
+  const _DateChip({required this.day, required this.selected, required this.noted, required this.onTap});
 
   final DateTime day;
   final bool selected;
+  final bool noted;
   final VoidCallback onTap;
 
   @override
@@ -166,7 +170,7 @@ class _DateChip extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text('${day.month}.${day.day}', style: AppType.headline.copyWith(color: foreground)),
-              Text('기록 없음', style: AppType.footnote.copyWith(color: note)),
+              Text(noted ? '기록 있음' : '기록 없음', style: AppType.footnote.copyWith(color: note)),
             ],
           ),
         ),
@@ -216,9 +220,93 @@ class _RecordSections extends StatelessWidget {
         children: [
           _InfoRow(title: '날짜별 앨범', detail: '표시할 사진이 없습니다.'),
           Divider(height: 1, color: AppColors.line),
-          _InfoRow(title: '하루 이야기', detail: '작성된 이야기가 없습니다.'),
+          _StorySection(),
         ],
       ),
+    );
+  }
+}
+
+class _StorySection extends StatelessWidget {
+  const _StorySection();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final trip = controller.current;
+    final saved = controller.journalText();
+    if (trip == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('하루 이야기', style: AppType.headline),
+          const SizedBox(height: 2),
+          Text(saved == null ? '작성된 이야기가 없습니다.' : '이 기기에만 저장된 이야기', style: AppType.footnote),
+          const SizedBox(height: 8),
+          _StoryEditor(
+            key: ValueKey('${trip.id}-${journalDayKey(controller.journalDate)}'),
+            initial: saved ?? '',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryEditor extends StatefulWidget {
+  const _StoryEditor({super.key, required this.initial});
+
+  final String initial;
+
+  @override
+  State<_StoryEditor> createState() => _StoryEditorState();
+}
+
+class _StoryEditorState extends State<_StoryEditor> {
+  late final TextEditingController text = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final unchanged = text.text.trim() == widget.initial.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const Key('journal-story'),
+          controller: text,
+          style: AppType.body,
+          minLines: 3,
+          maxLines: 6,
+          decoration: InputDecoration(
+            hintText: '이 날의 이야기를 적으세요',
+            hintStyle: AppType.body.copyWith(color: AppColors.tertiary),
+            filled: true,
+            fillColor: AppColors.canvas,
+            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.line)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.line)),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: AppButton(
+            key: const Key('save-journal'),
+            label: '저장',
+            onPressed: unchanged ? null : () => controller.saveJournal(text.text),
+          ),
+        ),
+      ],
     );
   }
 }
