@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/sample_catalog.dart';
 import '../format.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
@@ -35,7 +36,13 @@ class PlacePanel extends StatelessWidget {
           Text(place.localName ?? '현지어 이름 미확인', style: AppType.footnote),
           const SizedBox(height: 4),
           Text(categoryLabel(place.category), style: AppType.footnoteStrong),
-          SampleBanner(visible: place.dataOriginMock),
+          _SampleLimit(place: place, offline: controller.offline),
+          if (placeSuggestion(place.id) != null) ...[
+            const SizedBox(height: 12),
+            const Text('이 여행에 넣은 이유', style: AppType.footnoteStrong),
+            const SizedBox(height: 4),
+            Text(placeSuggestion(place.id)!, style: AppType.body),
+          ],
           if (place.suspended) ...[
             const SizedBox(height: 12),
             const Text('이 장소는 일정 자동 생성에서 빠집니다.', style: AppType.body),
@@ -68,7 +75,12 @@ class PlacePanel extends StatelessWidget {
           _FactBlock(field: field, claims: place.claimsFor(field), showValue: showFacts || showSources, showSources: showSources),
         if (showSources) ...[
           const SectionLabel('후기'),
-          const Text('후기 자료가 연결되지 않았습니다.', style: AppType.body),
+          Text(
+            place.dataOriginMock ? '샘플에는 후기 원문이 없습니다. 별점이나 문장으로 이 장소를 앞세우지 않습니다.' : '후기 자료가 연결되지 않았습니다.',
+            style: AppType.body,
+          ),
+          const SizedBox(height: 8),
+          AppButton(label: '후기는 나중에 확인', filled: false, onPressed: () => controller.requestVerification(place.id)),
         ],
         if (showFacts) ...[
           const SizedBox(height: 16),
@@ -147,6 +159,47 @@ class _FactBlock extends StatelessWidget {
             ],
             const SizedBox(height: 8),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SampleLimit extends StatefulWidget {
+  const _SampleLimit({required this.place, required this.offline});
+
+  final Place place;
+  final bool offline;
+
+  @override
+  State<_SampleLimit> createState() => _SampleLimitState();
+}
+
+class _SampleLimitState extends State<_SampleLimit> {
+  bool open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.place.dataOriginMock && !widget.offline) return const SizedBox.shrink();
+    final title = widget.offline ? '오프라인 · 이 화면의 자료만' : '샘플 장소 · 한계 보기';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextButton(
+            key: const Key('place-sample-limit'),
+            onPressed: () => setState(() => open = !open),
+            style: TextButton.styleFrom(minimumSize: const Size(44, 36), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+            child: Text(open ? '$title · 접기' : title, style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
+          ),
+          if (open)
+            Text(
+              widget.offline
+                  ? '연결이 없어 좌표, 주소, 영업시간을 다시 받지 않습니다. 화면에 있는 값은 마지막으로 이 기기에 둔 자료입니다.'
+                  : '좌표와 주소, 영업시간은 앱에 넣어 둔 예시입니다. 오늘 문을 여는지, 가격, 예약은 이 화면이 보증하지 않습니다.',
+              style: AppType.footnote,
+            ),
         ],
       ),
     );

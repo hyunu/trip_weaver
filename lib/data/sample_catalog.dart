@@ -35,63 +35,66 @@ SampleCatalog buildSampleCatalog() {
     Place(
       id: 'park',
       name: '외탄 공원',
-      localName: '外滩',
+      localName: '黄浦公园',
       category: PlaceCategory.attraction,
       cityName: '상하이',
       claims: [
-        claim(field: 'coordinate', value: '31.2435, 121.4912', validity: FactValidity.corroborated, sourceName: 'mock 지오코더', verifiedAt: verified),
-        claim(field: 'coordinate', value: '31.2435, 121.4912', validity: FactValidity.corroborated, sourceName: 'mock 시 자료', verifiedAt: verified),
-        claim(field: 'address', value: '중산동 1로', validity: FactValidity.corroborated, sourceName: 'mock 공식 안내', verifiedAt: verified),
-        claim(field: 'address', value: '중산동 1로', validity: FactValidity.corroborated, sourceName: 'mock 시 자료', verifiedAt: verified),
-        claim(field: 'hours', value: '09:00–17:00', validity: FactValidity.corroborated, sourceName: 'mock 공식 안내', verifiedAt: verified),
-        claim(field: 'hours', value: '09:00–17:00', validity: FactValidity.corroborated, sourceName: 'mock 시 자료', verifiedAt: verified),
+        claim(field: 'coordinate', value: '31.2435, 121.4912', validity: FactValidity.corroborated, sourceName: '샘플 · 외탄 황푸공원 안내도', verifiedAt: verified),
+        claim(field: 'coordinate', value: '31.2435, 121.4912', validity: FactValidity.corroborated, sourceName: '샘플 · 상하이 강변 좌표집', verifiedAt: verified),
+        claim(field: 'address', value: '황푸구 중산둥 1로 외탄', validity: FactValidity.corroborated, sourceName: '샘플 · 외탄 황푸공원 안내도', verifiedAt: verified),
+        claim(field: 'address', value: '황푸구 중산둥 1로 외탄', validity: FactValidity.corroborated, sourceName: '샘플 · 상하이 강변 좌표집', verifiedAt: verified),
+        claim(field: 'hours', value: '09:00–17:00', validity: FactValidity.corroborated, sourceName: '샘플 · 외탄 황푸공원 안내도', verifiedAt: verified),
+        claim(field: 'hours', value: '09:00–17:00', validity: FactValidity.corroborated, sourceName: '샘플 · 상하이 강변 좌표집', verifiedAt: verified),
       ],
     ),
     Place(
       id: 'gallery',
       name: '루자쭈이 전망',
+      localName: '陆家嘴滨江',
       category: PlaceCategory.culture,
       cityName: '상하이',
       claims: [
-        claim(field: 'coordinate', value: '31.2408, 121.5012', validity: FactValidity.collected, sourceName: 'mock 지오코더'),
-        claim(field: 'address', value: '루자쭈이로 100', validity: FactValidity.collected, sourceName: 'mock 안내 페이지'),
-        claim(field: 'hours', value: '10:00–18:00', validity: FactValidity.collected, sourceName: 'mock 안내 페이지'),
+        claim(field: 'coordinate', value: '31.2408, 121.5012', validity: FactValidity.collected, sourceName: '샘플 · 루자쭈이 강변 안내'),
+        claim(field: 'address', value: '푸둥신구 루자쭈이 강변', validity: FactValidity.collected, sourceName: '샘플 · 루자쭈이 강변 안내'),
+        claim(field: 'hours', value: '10:00–18:00', validity: FactValidity.collected, sourceName: '샘플 · 루자쭈이 강변 안내'),
       ],
     ),
     Place(
       id: 'market',
       name: '예원 골목',
-      localName: '豫园',
+      localName: '豫园商城',
       category: PlaceCategory.shopping,
       cityName: '상하이',
       claims: [
-        claim(field: 'coordinate', value: '31.2273, 121.4924', validity: FactValidity.collected, sourceName: 'mock 지오코더'),
-        claim(field: 'address', value: '예원로 218', validity: FactValidity.collected, sourceName: 'mock 시장 조합'),
-        claim(field: 'hours', value: '09:00–18:00', validity: FactValidity.conflicted, sourceName: 'mock 시장 조합'),
-        claim(field: 'hours', value: '10:00–16:00', validity: FactValidity.conflicted, sourceName: 'mock 현장 메모'),
+        claim(field: 'coordinate', value: '31.2273, 121.4924', validity: FactValidity.collected, sourceName: '샘플 · 예원상청 위치'),
+        claim(field: 'address', value: '황푸구 예위안루 예원상청', validity: FactValidity.collected, sourceName: '샘플 · 예원상청 위치'),
+        claim(field: 'hours', value: '09:00–18:00', validity: FactValidity.conflicted, sourceName: '샘플 · 예원상청 안내문'),
+        claim(field: 'hours', value: '10:00–16:00', validity: FactValidity.conflicted, sourceName: '샘플 · 현장 메모'),
       ],
     ),
     Place(
       id: 'noodle',
-      name: '난징루 식당',
+      name: '덕흥관',
+      localName: '德兴馆',
       category: PlaceCategory.restaurant,
       cityName: '상하이',
-      aiOrderSentence: '추천을 부탁합니다.',
+      aiOrderSentence: '请推荐这家里现在可以点的面。',
       claims: [
-        claim(field: 'coordinate', value: '31.2357, 121.4810', validity: FactValidity.collected, sourceName: 'mock 지오코더'),
-        claim(field: 'address', value: '난징동로 100', validity: FactValidity.collected, sourceName: 'mock 안내 페이지'),
-        claim(field: 'hours', value: '11:00–21:00', validity: FactValidity.collected, sourceName: 'mock 안내 페이지'),
+        claim(field: 'coordinate', value: '31.2357, 121.4810', validity: FactValidity.collected, sourceName: '샘플 · 난징둥루 음식점 목록'),
+        claim(field: 'address', value: '황푸구 난징둥루 덕흥관', validity: FactValidity.collected, sourceName: '샘플 · 난징둥루 음식점 목록'),
+        claim(field: 'hours', value: '11:00–21:00', validity: FactValidity.collected, sourceName: '샘플 · 난징둥루 음식점 목록'),
       ],
     ),
     Place(
       id: 'wharf',
-      name: '옛 부두 상점',
+      name: '십육포',
+      localName: '十六铺',
       category: PlaceCategory.shopping,
       cityName: '상하이',
       claims: [
-        claim(field: 'coordinate', value: '31.2335, 121.4888', validity: FactValidity.collected, sourceName: 'mock 지오코더'),
-        claim(field: 'address', value: '외탄로 2', validity: FactValidity.collected, sourceName: 'mock 공식 목록'),
-        claim(field: 'business', value: '운영 중단 자료가 있습니다', validity: FactValidity.suspended, sourceName: 'mock 공식 목록'),
+        claim(field: 'coordinate', value: '31.2335, 121.4888', validity: FactValidity.collected, sourceName: '샘플 · 외탄 부두 목록'),
+        claim(field: 'address', value: '황푸구 중산둥 1로 십육포', validity: FactValidity.collected, sourceName: '샘플 · 외탄 부두 목록'),
+        claim(field: 'business', value: '운영 중단 자료가 있습니다', validity: FactValidity.suspended, sourceName: '샘플 · 외탄 부두 목록'),
       ],
     ),
   ];
@@ -176,7 +179,7 @@ SampleCatalog buildSampleCatalog() {
           warnings: const [ItemWarning.closureUnconfirmed],
         ),
         move(id: 'd1106-move', start: at(11, 6, 11, 30), end: at(11, 6, 11, 45)),
-        meal(id: 'd1106-meal', title: '난징루 식당', placeId: 'noodle', start: at(11, 6, 12), end: at(11, 6, 13, 30)),
+        meal(id: 'd1106-meal', title: '덕흥관', placeId: 'noodle', start: at(11, 6, 12), end: at(11, 6, 13, 30)),
         stay(
           id: 'd1106-gallery',
           title: '루자쭈이 전망',
@@ -206,7 +209,7 @@ SampleCatalog buildSampleCatalog() {
           warnings: const [ItemWarning.hoursConflict, ItemWarning.closureUnconfirmed],
           hoursConflict: true,
         ),
-        meal(id: 'd1107-meal', title: '난징루 식당', placeId: 'noodle', start: at(11, 7, 12, 30), end: at(11, 7, 13, 45)),
+        meal(id: 'd1107-meal', title: '덕흥관', placeId: 'noodle', start: at(11, 7, 12, 30), end: at(11, 7, 13, 45)),
         PlanItem(
           id: 'd1107-rest',
           kind: ItemKind.rest,
@@ -255,7 +258,7 @@ SampleCatalog buildSampleCatalog() {
         warnings: const [ItemWarning.hoursUnconfirmed],
       ),
       move(id: 'd1108-move-2', start: at(11, 8, 12, 20), end: at(11, 8, 12, 30)),
-      meal(id: 'd1108-meal', title: '난징루 식당', placeId: 'noodle', start: at(11, 8, 12, 30), end: at(11, 8, 13, 45)),
+      meal(id: 'd1108-meal', title: '덕흥관', placeId: 'noodle', start: at(11, 8, 12, 30), end: at(11, 8, 13, 45)),
       PlanItem(
         id: 'd1108-rest',
         kind: ItemKind.rest,
@@ -312,7 +315,7 @@ SampleCatalog buildSampleCatalog() {
           unconfirmed: const ['휴무'],
           warnings: const [ItemWarning.closureUnconfirmed],
         ),
-        meal(id: 'd1109-meal', title: '난징루 식당', placeId: 'noodle', start: at(11, 9, 13, 15), end: at(11, 9, 14, 30)),
+        meal(id: 'd1109-meal', title: '덕흥관', placeId: 'noodle', start: at(11, 9, 13, 15), end: at(11, 9, 14, 30)),
       ],
     );
   }
@@ -361,7 +364,7 @@ SampleCatalog buildSampleCatalog() {
         hoursConflict: true,
       ),
       move(id: 'p1108-move', start: at(11, 8, 11, 45), end: at(11, 8, 12)),
-      meal(id: 'p1108-meal', title: '난징루 식당', placeId: 'noodle', start: at(11, 8, 12), end: at(11, 8, 13, 15)),
+      meal(id: 'p1108-meal', title: '덕흥관', placeId: 'noodle', start: at(11, 8, 12), end: at(11, 8, 13, 15)),
       stay(
         id: 'p1108-gallery',
         title: '루자쭈이 전망',
@@ -474,4 +477,22 @@ SampleCatalog buildSampleCatalog() {
   );
 
   return SampleCatalog(trips: [river, south, winter], places: places, currentTripId: river.id);
+}
+
+/// Why a bundled sample place is on this trip. Not a verified fact.
+String? placeSuggestion(String placeId) {
+  switch (placeId) {
+    case 'park':
+      return '도보로 강변을 시작하기 좋습니다. 외탄 북쪽 황푸공원을 샘플 좌표로 넣었습니다.';
+    case 'gallery':
+      return '강 건너 루자쭈이 강변 전망입니다. 전시 내용과 입장료는 샘플에 없습니다.';
+    case 'market':
+      return '시장을 보려는 일정에 예원상청 골목을 넣었습니다. 영업시간은 샘플 출처가 서로 다릅니다.';
+    case 'noodle':
+      return '국수를 먹으려는 맛에 맞춰 난징둥루의 덕흥관을 넣었습니다. 메뉴와 예약은 확인하지 않았습니다.';
+    case 'wharf':
+      return '외탄에서 남쪽으로 이어지는 십육포 부두입니다. 운영 중단 자료가 있어 자동 일정에서는 빠집니다.';
+    default:
+      return null;
+  }
 }
