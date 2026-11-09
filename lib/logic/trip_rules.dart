@@ -2,7 +2,10 @@ import '../data/countries.dart';
 import '../model/models.dart';
 
 class CityDraft {
-  CityDraft({this.name = '', this.countryCode = 'KR', this.start, this.end});
+  CityDraft({this.name = '', this.countryCode = 'KR', this.start, this.end, this.id});
+
+  /// Existing [City.id] when editing; null for a newly added city row.
+  final String? id;
 
   String name;
   String countryCode;
@@ -24,6 +27,25 @@ class TripDraft {
     List<CityDraft>? cities,
   })  : tasteTags = tasteTags ?? <String>[],
         cities = cities ?? <CityDraft>[];
+
+  factory TripDraft.fromTrip(Trip trip) {
+    final cities = List<City>.of(trip.cities)..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return TripDraft(
+      title: trip.title,
+      countryCode: trip.countryCode,
+      start: dateOnly(trip.start),
+      end: dateOnly(trip.end),
+      purpose: trip.purpose,
+      tasteTags: List<String>.of(trip.tasteTags),
+      budgetAmount: trip.budgetAmount?.toString() ?? '',
+      budgetCurrency: trip.budgetCurrency ?? '',
+      companionCount: trip.companionCount,
+      cities: [
+        for (final city in cities)
+          CityDraft(id: city.id, name: city.name, countryCode: city.countryCode, start: dateOnly(city.start), end: dateOnly(city.end)),
+      ],
+    );
+  }
 
   String title;
   String countryCode;
@@ -94,4 +116,37 @@ Map<String, String> validateTripDraft(TripDraft draft) {
     }
   }
   return errors;
+}
+
+/// Days and items that editing [trip] to [draft] would drop from the applied itinerary.
+class TripEditImpact {
+  const TripEditImpact({required this.days, required this.items, required this.pinned});
+
+  final List<DateTime> days;
+  final int items;
+  final int pinned;
+
+  bool get isEmpty => items == 0;
+}
+
+bool editRemovesDay(Trip trip, TripDraft draft, DateTime day) {
+  final start = draft.start;
+  final end = draft.end;
+  if (start == null || end == null || !containsDay(start, end, day)) return true;
+  final kept = {for (final city in draft.cities) if (city.id != null) city.id!};
+  return trip.cities.any((city) => !kept.contains(city.id) && containsDay(city.start, city.end, day));
+}
+
+TripEditImpact tripEditImpact(Trip trip, TripDraft draft) {
+  final days = <DateTime>[];
+  var items = 0;
+  var pinned = 0;
+  for (final day in trip.activeDays) {
+    if (day.items.isEmpty || !editRemovesDay(trip, draft, day.date)) continue;
+    days.add(dateOnly(day.date));
+    items += day.items.length;
+    pinned += day.items.where((item) => item.locked).length;
+  }
+  days.sort();
+  return TripEditImpact(days: days, items: items, pinned: pinned);
 }

@@ -9,6 +9,7 @@ import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
 import '../widgets/schedule_block.dart';
+import 'trip_form_screen.dart';
 
 class TripDetailScreen extends StatelessWidget {
   const TripDetailScreen({super.key, this.onClose});
@@ -22,6 +23,9 @@ class TripDetailScreen extends StatelessWidget {
     final controller = TripScope.of(context);
     final trip = controller.current;
     if (trip == null) return const EmptyPane(title: '여행', message: '여행을 고르세요.');
+    if (controller.editingTripId == trip.id) {
+      return TripFormScreen(key: ValueKey('edit-${trip.id}'), trip: trip, onClose: controller.closeEditTrip);
+    }
     final next = controller.destinationFor(trip);
     final total = trip.companionCount + 1;
     final unconfirmed = trip.cities.where((city) => !city.coordinateConfirmed).length;
@@ -32,7 +36,17 @@ class TripDetailScreen extends StatelessWidget {
           key: const Key('trip-detail-scroll'),
           padding: EdgeInsets.fromLTRB(side, AppSpace.xs, side, AppSpace.lg),
           children: [
-            if (onClose != null) BackRow(onPressed: onClose!),
+            Row(
+              children: [
+                Expanded(child: onClose == null ? const SizedBox.shrink() : BackRow(onPressed: onClose!)),
+                TextButton(
+                  key: const Key('detail-edit-trip'),
+                  onPressed: () => controller.openEditTrip(trip.id),
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: Text('편집', style: AppType.headline.copyWith(color: AppColors.accent)),
+                ),
+              ],
+            ),
             Text(displayTitle(trip.title), style: AppType.title),
             const SizedBox(height: AppSpace.xxs),
             Text('${statusLabel(trip.status)} · ${trip.countryCode} ${trip.countryName}', style: AppType.footnote),

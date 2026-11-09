@@ -3,6 +3,7 @@ import 'package:trip_weave/format.dart';
 import 'package:trip_weave/logic/city_lookup.dart';
 import 'package:trip_weave/logic/schedule.dart';
 import 'package:trip_weave/model/models.dart';
+import 'package:trip_weave/logic/trip_rules.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 
 void main() {
@@ -126,6 +127,39 @@ void main() {
   test('예산 표기', () {
     expect(moneyLabel(400000, 'KRW'), '400,000 KRW');
     expect(moneyLabel(null, null), '예산 없음');
+  });
+
+  test('여행 편집 시 장소 선택은 남고 빠진 도시 날짜의 일정만 지운다', () {
+    final controller = TripController();
+    final trip = controller.current!;
+    final links = trip.links.length;
+    final beforeItems = trip.activeDays.fold<int>(0, (sum, day) => sum + day.items.length);
+    final draft = TripDraft.fromTrip(trip);
+    draft.cities.removeAt(1);
+    final impact = tripEditImpact(trip, draft);
+    expect(impact.isEmpty, isFalse);
+    expect(impact.items, greaterThan(0));
+
+    expect(controller.updateTrip(trip.id, draft), isNull);
+    expect(trip.cities.length, 1);
+    expect(trip.links.length, links);
+    final afterItems = trip.activeDays.fold<int>(0, (sum, day) => sum + day.items.length);
+    expect(afterItems, lessThan(beforeItems));
+    expect(trip.activeDays.every((day) => !editRemovesDay(trip, draft, day.date)), isTrue);
+  });
+
+  test('제목·동행만 바꿀 때 일정 영향은 없다', () {
+    final controller = TripController();
+    final trip = controller.current!;
+    final days = trip.activeDays.length;
+    final draft = TripDraft.fromTrip(trip);
+    draft.title = '수정된 제목';
+    draft.companionCount = 2;
+    expect(tripEditImpact(trip, draft).isEmpty, isTrue);
+    expect(controller.updateTrip(trip.id, draft), isNull);
+    expect(trip.title, '수정된 제목');
+    expect(trip.companionCount, 2);
+    expect(trip.activeDays.length, days);
   });
 }
 

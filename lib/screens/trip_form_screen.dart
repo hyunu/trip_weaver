@@ -11,16 +11,19 @@ import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
 
 class TripFormScreen extends StatefulWidget {
-  const TripFormScreen({super.key, this.onClose});
+  const TripFormScreen({super.key, this.onClose, this.trip});
 
   final VoidCallback? onClose;
+
+  /// When set, the form edits this trip instead of creating one.
+  final Trip? trip;
 
   @override
   State<TripFormScreen> createState() => _TripFormScreenState();
 }
 
 class _TripFormScreenState extends State<TripFormScreen> {
-  final draft = TripDraft(cities: [CityDraft()]);
+  late final TripDraft draft = widget.trip == null ? TripDraft(cities: [CityDraft()]) : TripDraft.fromTrip(widget.trip!);
   final titleController = TextEditingController();
   final purposeController = TextEditingController();
   final budgetController = TextEditingController();
@@ -31,6 +34,16 @@ class _TripFormScreenState extends State<TripFormScreen> {
   bool _dirty = false;
 
   static const _maxWidth = 600.0;
+
+  bool get _editing => widget.trip != null;
+
+  @override
+  void initState() {
+    super.initState();
+    titleController.text = draft.title;
+    purposeController.text = draft.purpose;
+    budgetController.text = draft.budgetAmount;
+  }
 
   @override
   void dispose() {
@@ -89,10 +102,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
             children: [
               if (widget.onClose != null)
                 BackRow(label: '취소', onPressed: _close),
-              const Text('여행 만들기', style: AppType.title),
+              Text(_editing ? '여행 편집' : '여행 만들기', key: const Key('form-heading'), style: AppType.title),
               const SizedBox(height: AppSpace.xxs),
-              const Text(
-                '제목, 국가, 기간, 도시는 꼭 필요합니다. 나머지는 나중에 채워도 됩니다.',
+              Text(
+                _editing
+                    ? '일정과 장소 선택은 그대로 둡니다. 기간을 줄이거나 도시를 빼면 그 날짜의 일정 항목이 지워집니다.'
+                    : '제목, 국가, 기간, 도시는 꼭 필요합니다. 나머지는 나중에 채워도 됩니다.',
                 style: AppType.footnote,
               ),
               const SectionLabel('기본 정보'),
@@ -357,7 +372,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
               ],
               AppButton(
                 key: const Key('form-save'),
-                label: '여행 만들기',
+                label: _editing ? '변경 저장' : '여행 만들기',
                 onPressed: _save,
               ),
             ],
@@ -393,12 +408,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final discard = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('작성 중인 여행을 버릴까요?', style: AppType.headline),
-        content: const Text('입력한 내용은 저장되지 않습니다.', style: AppType.body),
+        title: Text(_editing ? '수정한 내용을 버릴까요?' : '작성 중인 여행을 버릴까요?', style: AppType.headline),
+        content: Text(_editing ? '여행은 수정 전 그대로 남습니다.' : '입력한 내용은 저장되지 않습니다.', style: AppType.body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('계속 작성'),
+            child: Text(_editing ? '계속 수정' : '계속 작성'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -411,7 +426,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
     if (discard == true) onClose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     draft.title = titleController.text;
     draft.purpose = purposeController.text;
     draft.budgetAmount = budgetController.text;
@@ -422,7 +437,42 @@ class _TripFormScreenState extends State<TripFormScreen> {
       _revealFirstError(next);
       return;
     }
-    TripScope.of(context).createTrip(draft);
+    final controller = TripScope.of(context);
+    final trip = widget.trip;
+    if (trip == null) {
+      controller.createTrip(draft);
+      return;
+    }
+    final impact = tripEditImpact(trip, draft);
+    if (!impact.isEmpty && await _confirmRemoval(impact) != true) return;
+    if (!mounted) return;
+    controller.updateTrip(trip.id, draft);
+  }
+
+  Future<bool?> _confirmRemoval(TripEditImpact impact) {
+    final dates = impact.days.map(formatMonthDay).join(', ');
+    final pinned = impact.pinned == 0 ? '' : '(고정 ${impact.pinned}개 포함)';
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('일정 항목 ${impact.items}개가 지워집니다', style: AppType.headline),
+        content: Text(
+          '기간 밖이 되거나 뺀 도시의 날짜($dates, ${impact.days.length}일)에 있는 적용된 일정 항목 ${impact.items}개$pinned가 지워집니다. '
+          '다른 날짜의 일정과 장소 선택은 그대로입니다.',
+          key: const Key('edit-removal-message'),
+          style: AppType.body,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('계속 수정')),
+          TextButton(
+            key: const Key('confirm-edit-trip'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('지우고 저장'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _revealFirstError(Map<String, String> found) {
