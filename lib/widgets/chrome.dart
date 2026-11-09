@@ -2,8 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
+import '../logic/schedule.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
+import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 
 class ScrollHost extends StatefulWidget {
@@ -43,11 +45,12 @@ class _ScrollHostState extends State<ScrollHost> {
 }
 
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key, required this.title, required this.titleKey, this.subtitle});
+  const PageHeader({super.key, required this.title, required this.titleKey, this.subtitle, this.subtitleWidget});
 
   final String title;
   final Key titleKey;
   final String? subtitle;
+  final Widget? subtitleWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -57,12 +60,147 @@ class PageHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, key: titleKey, style: AppType.largeTitle),
-          if (subtitle != null) ...[
+          if (subtitleWidget != null) ...[
+            const SizedBox(height: AppSpace.xxs),
+            subtitleWidget!,
+          ] else if (subtitle != null) ...[
             const SizedBox(height: AppSpace.xxs),
             Text(subtitle!, style: AppType.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// 헤더 부제에 현재 여행을 보여 주고, 탭을 떠나지 않고 여행을 바꿀 수 있게 한다.
+class TripContextSubtitle extends StatelessWidget {
+  const TripContextSubtitle({super.key, this.trailingLine});
+
+  final String? trailingLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final trip = controller.current;
+    if (trip == null) return const SizedBox.shrink();
+    final label = cityTripLabel(controller.selectedCity?.name, trip.title);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TripSwitcherControl(label: label, tripId: trip.id),
+        if (trailingLine != null) ...[
+          const SizedBox(height: 2),
+          Text(trailingLine!, style: AppType.footnote.copyWith(color: AppColors.secondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ],
+    );
+  }
+}
+
+class TripSwitcherControl extends StatelessWidget {
+  const TripSwitcherControl({super.key, required this.label, required this.tripId});
+
+  final String label;
+  final String tripId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '현재 여행 $label, 여행 바꾸기',
+      child: InkWell(
+        key: const Key('trip-switcher'),
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        onTap: () => _openTripPicker(context),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(label, style: AppType.footnoteStrong.copyWith(color: AppColors.accent), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ),
+                const Icon(CupertinoIcons.chevron_down, size: 14, color: AppColors.accent),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openTripPicker(BuildContext context) {
+    final controller = TripScope.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => _TripPickerSheet(controller: controller, selectedId: tripId),
+    );
+  }
+}
+
+class _TripPickerSheet extends StatelessWidget {
+  const _TripPickerSheet({required this.controller, required this.selectedId});
+
+  final TripController controller;
+  final String selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = controller.now;
+    final ongoing = controller.trips.where((trip) => isOngoing(trip, now)).toList();
+    final upcoming = controller.trips.where((trip) => !isOngoing(trip, now) && !isPast(trip, now)).toList();
+    final past = controller.trips.where((trip) => isPast(trip, now)).toList();
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        shrinkWrap: true,
+        children: [
+          Text('여행 바꾸기', style: AppType.title),
+          const SizedBox(height: AppSpace.sm),
+          if (ongoing.isNotEmpty) ...[
+            Text('진행 중', style: AppType.section),
+            for (final trip in ongoing) _TripPickerTile(trip: trip, selected: trip.id == selectedId, onTap: () => _pick(context, trip.id)),
+          ],
+          if (upcoming.isNotEmpty) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text('예정', style: AppType.section),
+            for (final trip in upcoming) _TripPickerTile(trip: trip, selected: trip.id == selectedId, onTap: () => _pick(context, trip.id)),
+          ],
+          if (past.isNotEmpty) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text('지난 여행', style: AppType.section),
+            for (final trip in past) _TripPickerTile(trip: trip, selected: trip.id == selectedId, onTap: () => _pick(context, trip.id)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _pick(BuildContext context, String id) {
+    controller.selectTrip(id);
+    Navigator.of(context).pop();
+  }
+}
+
+class _TripPickerTile extends StatelessWidget {
+  const _TripPickerTile({required this.trip, required this.selected, required this.onTap});
+
+  final Trip trip;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      key: Key('trip-picker-${trip.id}'),
+      contentPadding: EdgeInsets.zero,
+      title: Text(displayTitle(trip.title), style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
+      subtitle: Text('${formatRange(trip.start, trip.end)} · ${statusLabel(trip.status)}', style: AppType.footnote),
+      trailing: selected ? const Icon(CupertinoIcons.check_mark, color: AppColors.accent, size: 18) : null,
+      onTap: onTap,
     );
   }
 }

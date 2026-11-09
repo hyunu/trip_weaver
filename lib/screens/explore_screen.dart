@@ -90,7 +90,7 @@ class _ExploreHeader extends StatelessWidget {
               child: PageHeader(
                 title: '탐색',
                 titleKey: const Key('screen-title-explore'),
-                subtitle: cityTripLabel(controller.selectedCity?.name, trip.title),
+                subtitleWidget: const TripContextSubtitle(),
               ),
             ),
             IconButton(

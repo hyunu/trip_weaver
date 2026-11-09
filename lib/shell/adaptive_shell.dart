@@ -93,7 +93,7 @@ class _PhoneFrameState extends State<_PhoneFrame> {
                 ),
               ),
             ),
-            _TabBar(index: tab, onTap: controller.selectTab),
+            _TabBar(index: tab, underwayEnabled: controller.hasOngoingTrip, onTap: controller.selectTab),
           ],
         ),
       ),
@@ -240,7 +240,7 @@ class _TabletFrame extends StatelessWidget {
         child: SafeArea(
           child: Row(
             children: [
-              _Rail(index: controller.tabIndex, onTap: controller.selectTab),
+              _Rail(index: controller.tabIndex, underwayEnabled: controller.hasOngoingTrip, onTap: controller.selectTab),
               const VerticalDivider(width: 1),
               Expanded(child: _tabletBody(controller)),
             ],
@@ -330,10 +330,13 @@ const _destinations = [
 ];
 
 class _TabBar extends StatelessWidget {
-  const _TabBar({required this.index, required this.onTap});
+  const _TabBar({required this.index, required this.underwayEnabled, required this.onTap});
 
   final int index;
+  final bool underwayEnabled;
   final ValueChanged<int> onTap;
+
+  static const _underwayTab = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -358,40 +361,15 @@ class _TabBar extends StatelessWidget {
               children: [
                 for (var i = 0; i < _destinations.length; i++)
                   Expanded(
-                    child: Semantics(
-                      button: true,
+                    child: _ShellTab(
+                      keyName: _destinations[i].keyName,
+                      shortLabel: _destinations[i].shortLabel,
+                      semanticsLabel: _destinations[i].label,
+                      icon: _destinations[i].icon,
                       selected: i == index,
-                      label: _destinations[i].label,
-                      excludeSemantics: true,
-                      child: InkWell(
-                        key: Key('tab-${_destinations[i].keyName}'),
-                        onTap: () => onTap(i),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Icon(_destinations[i].icon,
-                                size: 22,
-                                color: i == index
-                                    ? AppColors.accent
-                                    : AppColors.secondary),
-                            const SizedBox(height: 2),
-                            Text(
-                              _destinations[i].shortLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppType.caption.copyWith(
-                                height: 1.1,
-                                color: i == index
-                                    ? AppColors.accent
-                                    : AppColors.secondary,
-                                fontWeight: i == index
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      enabled: i != _underwayTab || underwayEnabled,
+                      showBadge: i == _underwayTab && underwayEnabled,
+                      onTap: () => onTap(i),
                     ),
                   ),
               ],
@@ -403,11 +381,86 @@ class _TabBar extends StatelessWidget {
   }
 }
 
+class _ShellTab extends StatelessWidget {
+  const _ShellTab({
+    required this.keyName,
+    required this.shortLabel,
+    required this.semanticsLabel,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+    this.showBadge = false,
+  });
+
+  final String keyName;
+  final String shortLabel;
+  final String semanticsLabel;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final bool showBadge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = enabled && selected;
+    final idle = enabled ? AppColors.secondary : AppColors.tertiary;
+    final color = accent ? AppColors.accent : idle;
+    return Semantics(
+      button: enabled,
+      enabled: enabled,
+      selected: selected,
+      label: enabled ? semanticsLabel : '$semanticsLabel, 사용할 수 없음',
+      excludeSemantics: true,
+      child: InkWell(
+        key: Key('tab-$keyName'),
+        onTap: enabled ? onTap : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 22, color: color),
+                if (showBadge)
+                  Positioned(
+                    right: -4,
+                    top: -2,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              shortLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.caption.copyWith(
+                height: 1.1,
+                color: color,
+                fontWeight: accent ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Rail extends StatelessWidget {
-  const _Rail({required this.index, required this.onTap});
+  const _Rail({required this.index, required this.underwayEnabled, required this.onTap});
 
   final int index;
+  final bool underwayEnabled;
   final ValueChanged<int> onTap;
+
+  static const _underwayTab = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -422,52 +475,98 @@ class _Rail extends StatelessWidget {
             children: [
               for (var i = 0; i < _destinations.length; i++)
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Semantics(
-                    button: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: _RailTab(
+                    keyName: _destinations[i].keyName,
+                    shortLabel: _destinations[i].shortLabel,
+                    semanticsLabel: _destinations[i].label,
+                    icon: _destinations[i].icon,
                     selected: i == index,
-                    label: _destinations[i].label,
-                    excludeSemantics: true,
-                    child: InkWell(
-                      key: Key('rail-${_destinations[i].keyName}'),
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => onTap(i),
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                            color: i == index
-                                ? AppColors.accentSoft
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12)),
-                        child: Column(
-                          children: [
-                            Icon(_destinations[i].icon,
-                                size: 22,
-                                color: i == index
-                                    ? AppColors.accent
-                                    : AppColors.secondary),
-                            const SizedBox(height: 2),
-                            Text(
-                              _destinations[i].shortLabel,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppType.caption.copyWith(
-                                  color: i == index
-                                      ? AppColors.accent
-                                      : AppColors.secondary,
-                                  fontWeight: i == index
-                                      ? FontWeight.w600
-                                      : FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    enabled: i != _underwayTab || underwayEnabled,
+                    showBadge: i == _underwayTab && underwayEnabled,
+                    onTap: () => onTap(i),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RailTab extends StatelessWidget {
+  const _RailTab({
+    required this.keyName,
+    required this.shortLabel,
+    required this.semanticsLabel,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+    this.showBadge = false,
+  });
+
+  final String keyName;
+  final String shortLabel;
+  final String semanticsLabel;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final bool showBadge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = enabled && selected;
+    final idle = enabled ? AppColors.secondary : AppColors.tertiary;
+    final color = accent ? AppColors.accent : idle;
+    return Semantics(
+      button: enabled,
+      enabled: enabled,
+      selected: selected,
+      label: enabled ? semanticsLabel : '$semanticsLabel, 사용할 수 없음',
+      excludeSemantics: true,
+      child: InkWell(
+        key: Key('rail-$keyName'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: accent ? AppColors.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, size: 22, color: color),
+                  if (showBadge)
+                    Positioned(
+                      right: -4,
+                      top: -2,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                shortLabel,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.caption.copyWith(
+                  color: color,
+                  fontWeight: accent ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),

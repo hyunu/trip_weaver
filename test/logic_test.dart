@@ -7,6 +7,21 @@ import 'package:trip_weave/logic/trip_rules.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 
 void main() {
+  test('다음 여행까지 남은 일수를 D-레이블로 만든다', () {
+    final trip = Trip(
+      id: 't',
+      title: '테스트',
+      countryCode: 'KR',
+      countryName: '대한민국',
+      start: DateTime(2026, 11, 20),
+      end: DateTime(2026, 11, 22),
+      status: TripStatus.draft,
+      cities: const [],
+    );
+    expect(countdownToTrip(trip, DateTime(2026, 11, 8)), 'D-12');
+    expect(countdownToTrip(trip, DateTime(2026, 11, 20)), '오늘 출발');
+  });
+
   test('상하이 도시 이름은 상하이 좌표로 찾는다', () {
     final found = candidatesForCity('상하이');
     expect(found.first.coordinateLabel, '31.2304, 121.4737');

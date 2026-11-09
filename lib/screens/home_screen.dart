@@ -33,6 +33,7 @@ class HomeScreen extends StatelessWidget {
     }
     final ongoing = controller.trips.where((trip) => isOngoing(trip, controller.now)).toList();
     final upcoming = controller.trips.where((trip) => !isOngoing(trip, controller.now) && !isPast(trip, controller.now)).toList();
+    final nextTrip = ongoing.isEmpty ? nearestUpcomingTrip(controller.trips, controller.now) : null;
     final past = controller.trips.where((trip) => isPast(trip, controller.now)).toList();
     return ScrollHost(
       id: 'home',
@@ -50,6 +51,7 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             StatusBanners(sample: controller.homeShowsSample, offline: controller.offline),
+            if (nextTrip != null) _NextTripCountdownCard(trip: nextTrip, tablet: tablet),
             if (ongoing.isNotEmpty) ...[
               const SectionLabel('진행 중'),
               _HeroCard(trip: ongoing.first, tablet: tablet),
@@ -66,6 +68,38 @@ class HomeScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _NextTripCountdownCard extends StatelessWidget {
+  const _NextTripCountdownCard({required this.trip, required this.tablet});
+
+  final Trip trip;
+  final bool tablet;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final countdown = countdownToTrip(trip, controller.now);
+    return _CardTap(
+      key: const Key('next-trip-countdown'),
+      selected: tablet && controller.currentTripId == trip.id,
+      onTap: () => _openTrip(controller, trip, tablet),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(countdown, key: const Key('next-trip-d-label'), style: AppType.title.copyWith(color: AppColors.accent)),
+          const SizedBox(height: AppSpace.xxs),
+          Text('다음 여행', style: AppType.footnoteStrong.copyWith(color: AppColors.secondary)),
+          const SizedBox(height: AppSpace.xxs),
+          Text(displayTitle(trip.title), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.headline),
+          const SizedBox(height: 2),
+          Text('${formatRange(trip.start, trip.end)} · ${formatMonthDay(trip.start)} 출발', style: AppType.footnote),
+          const SizedBox(height: 2),
+          Text(citySummary(trip), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
+        ],
+      ),
     );
   }
 }

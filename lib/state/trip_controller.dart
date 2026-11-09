@@ -288,7 +288,24 @@ class TripController extends ChangeNotifier {
 
   double scrollOf(String key) => scrollOffsets[key] ?? 0;
 
+  bool get hasOngoingTrip => trips.any((trip) => isOngoing(trip, now));
+
+  Trip? get firstOngoingTrip {
+    for (final trip in trips) {
+      if (isOngoing(trip, now)) return trip;
+    }
+    return null;
+  }
+
   void selectTab(int index) {
+    if (index == 3 && !hasOngoingTrip) return;
+    if (index == 3) {
+      final trip = current;
+      if (trip == null || !isOngoing(trip, now)) {
+        final ongoing = firstOngoingTrip;
+        if (ongoing != null) selectTrip(ongoing.id);
+      }
+    }
     tabIndex = index;
     notifyListeners();
   }
