@@ -5,7 +5,7 @@ class AppColors {
   static const card = Color(0xFFFFFFFF);
   static const ink = Color(0xFF1C1C1E);
   static const secondary = Color(0xFF636366);
-  static const tertiary = Color(0xFF8E8E93);
+  static const tertiary = Color(0xFF6E6E73);
   static const line = Color(0xFFE5E5EA);
   static const accent = Color(0xFF0E6B5C);
   static const accentSoft = Color(0xFFE5F4EF);
@@ -214,7 +214,7 @@ ThemeData buildTheme() {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.accent,
         textStyle: AppType.headline,
-        minimumSize: const Size(44, 44),
+        minimumSize: const Size(48, 48),
       ),
     ),
   );
@@ -263,8 +263,8 @@ class AppButton extends StatelessWidget {
       foreground = AppColors.ink;
       side = const BorderSide(color: AppColors.line);
     }
-    return SizedBox(
-      height: 48,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
@@ -273,12 +273,12 @@ class AppButton extends StatelessWidget {
           disabledBackgroundColor: AppColors.canvas,
           disabledForegroundColor: AppColors.tertiary,
           minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xxs),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
           side: side,
           textStyle: AppType.headline,
         ),
-        child: Text(label, style: AppType.headline.copyWith(color: foreground)),
+        child: Text(label, textAlign: TextAlign.center, style: AppType.headline.copyWith(color: foreground)),
       ),
     );
   }

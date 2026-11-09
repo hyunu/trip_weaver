@@ -216,7 +216,7 @@ class _CatalogState extends StatelessWidget {
         children: [
           Text(title, style: AppType.footnoteStrong),
           const SizedBox(height: 2),
-          Text(body, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
+          Text(body, style: AppType.footnote),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
@@ -226,7 +226,7 @@ class _CatalogState extends StatelessWidget {
                 final category = controller.categoryFilter;
                 if (category != null) controller.setCategory(category);
               },
-              style: TextButton.styleFrom(minimumSize: const Size(44, 36), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
               child: Text(filtered ? '필터 지우고 샘플 전체 보기' : '샘플 전체 목록 유지', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
             ),
           ),

@@ -207,7 +207,7 @@ class _SampleLimitState extends State<_SampleLimit> {
           TextButton(
             key: const Key('place-sample-limit'),
             onPressed: () => setState(() => open = !open),
-            style: TextButton.styleFrom(minimumSize: const Size(44, 36), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
             child: Text(open ? '$title · 접기' : title, style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
           ),
           if (open)

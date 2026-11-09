@@ -37,15 +37,22 @@ class TripDraft {
   List<CityDraft> cities;
 }
 
+const maxTitleLength = 60;
+const maxCityNameLength = 40;
+const maxTripDays = 366;
+
 Map<String, String> validateTripDraft(TripDraft draft) {
   final errors = <String, String>{};
   if (draft.title.trim().isEmpty) errors['title'] = '제목을 입력하세요.';
+  if (draft.title.trim().length > maxTitleLength) errors['title'] = '제목은 $maxTitleLength자 이하로 입력하세요.';
   final country = draft.countryCode.trim().toUpperCase();
   if (!countryNames.containsKey(country)) errors['country'] = '목록에 없는 국가입니다.';
   if (draft.start == null) errors['start'] = '시작일을 고르세요.';
   if (draft.end == null) errors['end'] = '종료일을 고르세요.';
   if (draft.start != null && draft.end != null && dateOnly(draft.end!).isBefore(dateOnly(draft.start!))) {
     errors['end'] = '종료일은 시작일 이상이어야 합니다.';
+  } else if (draft.start != null && draft.end != null && dateOnly(draft.end!).difference(dateOnly(draft.start!)).inDays + 1 > maxTripDays) {
+    errors['end'] = '여행 기간은 $maxTripDays일 이하여야 합니다.';
   }
   final amountText = draft.budgetAmount.trim();
   final currency = draft.budgetCurrency.trim();
@@ -62,6 +69,7 @@ Map<String, String> validateTripDraft(TripDraft draft) {
   for (var index = 0; index < draft.cities.length; index++) {
     final city = draft.cities[index];
     if (city.name.trim().isEmpty) errors['city-$index-name'] = '도시 이름을 입력하세요.';
+    if (city.name.trim().length > maxCityNameLength) errors['city-$index-name'] = '도시 이름은 $maxCityNameLength자 이하로 입력하세요.';
     if (!countryNames.containsKey(city.countryCode.trim().toUpperCase())) {
       errors['city-$index-country'] = '목록에 없는 국가입니다.';
     }
