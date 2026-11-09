@@ -1,0 +1,7 @@
+# Flutter create 기본값에서 flutter_lints 패키지 의존 없이 플랫폼 폴더만 분석 제외.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - macos/**
