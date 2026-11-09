@@ -542,16 +542,24 @@ class TripController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Iterable<Place> get catalogPlacesForLookup sync* {
+    final seen = <String>{};
+    for (final place in places) {
+      if (seen.add(place.id)) yield place;
+    }
+    for (final place in _bundledCatalog.places) {
+      if (seen.add(place.id)) yield place;
+    }
+  }
+
   List<Place> visiblePlaces() {
     final city = selectedCity;
     if (city == null || !city.coordinateConfirmed) return const [];
     final query = searchQuery.trim();
-    return places.where((place) {
-      if (place.cityName != city.name) return false;
+    return catalogPlacesForLookup.where((place) {
+      if (!cityNamesMatchForPlaces(place.cityName, city.name)) return false;
       if (categoryFilter != null && place.category != categoryFilter) return false;
-      if (query.isEmpty) return true;
-      final local = place.localName ?? '';
-      return place.name.contains(query) || local.contains(query);
+      return placeNameMatchesQuery(place.name, place.localName, query);
     }).toList();
   }
 
@@ -667,12 +675,9 @@ class TripController extends ChangeNotifier {
     if (trip == null) return const [];
     final city = cityOnDate(trip, planDate(trip));
     if (city == null) return const [];
-    final needle = query.trim();
-    return places.where((place) {
-      if (place.cityName != city.name) return false;
-      if (needle.isEmpty) return true;
-      final local = place.localName ?? '';
-      return place.name.contains(needle) || local.contains(needle);
+    return catalogPlacesForLookup.where((place) {
+      if (!cityNamesMatchForPlaces(place.cityName, city.name)) return false;
+      return placeNameMatchesQuery(place.name, place.localName, query);
     }).toList();
   }
 
@@ -870,8 +875,13 @@ class TripController extends ChangeNotifier {
     }
     final viewing = visibleDays(trip);
     final pins = mergePins([viewing, if (!identical(viewing, trip.activeDays)) trip.activeDays, if (trip.proposalDays != null && !identical(viewing, trip.proposalDays)) trip.proposalDays!]);
-    final proposal = proposeItinerary(trip, places, pinnedFrom: pins, exclude: _proposalExclusions[trip.id]);
-    if (proposal == null) return;
+    final pool = catalogPlacesForLookup.toList();
+    final proposal = proposeItinerary(trip, pool, pinnedFrom: pins, exclude: _proposalExclusions[trip.id]);
+    if (proposal == null) {
+      itineraryError = '도시가 없어 일정을 만들지 않습니다.';
+      notifyListeners();
+      return;
+    }
     trip.proposalDays = proposal;
     reviewingProposal = true;
     itineraryDeferred = false;
@@ -879,6 +889,16 @@ class TripController extends ChangeNotifier {
     selectedItemId = null;
     itineraryPushed = false;
     selectedDate = planDate(trip);
+    final selectedPlaces = pool.where((place) {
+      if (!trip.cities.any((city) => cityNamesMatchForPlaces(place.cityName, city.name))) return false;
+      final link = trip.links[place.id];
+      return link != null && link.decision == Decision.selected && !place.suspended;
+    }).length;
+    final pinnedStays = pins.expand((day) => day.items).where((item) => item.kind == ItemKind.stay && item.placeId != null).length;
+    if (selectedPlaces == 0 && pinnedStays == 0) {
+      itineraryNotice =
+          '탐색에서 장소를 «일정에 선택»하거나, 일정 «+추가 → 장소 검색»으로 넣은 뒤 제안받으면 방문이 채워집니다.';
+    }
     notifyListeners();
   }
 

@@ -64,6 +64,36 @@ const maxTitleLength = 60;
 const maxCityNameLength = 40;
 const maxTripDays = 366;
 
+/// Same city for place lists: 상하이 / Shanghai / 上海 등.
+String cityPlaceMatchKey(String name) {
+  final key = name.trim().toLowerCase().replaceAll(' ', '');
+  if (key.isEmpty) return '';
+  if (key.contains('상하이') || key.contains('shanghai') || key.contains('上海') || key.contains('상해')) {
+    return 'cn-shanghai';
+  }
+  if (key.contains('충밍') || key.contains('chongming') || key.contains('崇明')) {
+    return 'cn-chongming';
+  }
+  return key;
+}
+
+bool cityNamesMatchForPlaces(String cityA, String cityB) {
+  if (cityA.trim() == cityB.trim()) return true;
+  final ka = cityPlaceMatchKey(cityA);
+  final kb = cityPlaceMatchKey(cityB);
+  return ka.isNotEmpty && ka == kb;
+}
+
+bool placeNameMatchesQuery(String placeName, String? localName, String query) {
+  final needle = query.trim();
+  if (needle.isEmpty) return true;
+  final lower = needle.toLowerCase();
+  if (placeName.toLowerCase().contains(lower)) return true;
+  final local = localName ?? '';
+  if (local.toLowerCase().contains(lower)) return true;
+  return placeName.contains(needle) || local.contains(needle);
+}
+
 /// Known cities for offline/mock lookup when geocoder omits country.
 String? inferCountryCodeForCity(String name) {
   final key = name.trim().toLowerCase().replaceAll(' ', '');

@@ -1,5 +1,6 @@
 import '../model/models.dart';
 import 'schedule.dart';
+import 'trip_rules.dart';
 
 int proposedDwell(PlaceCategory category) {
   switch (category) {
@@ -128,7 +129,7 @@ List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pi
 List<Place> _selectedIn(Trip trip, List<Place> places, City city) {
   final selected = <Place>[];
   for (final place in places) {
-    if (place.cityName != city.name) continue;
+    if (!cityNamesMatchForPlaces(place.cityName, city.name)) continue;
     final link = trip.links[place.id];
     if (link == null || link.decision != Decision.selected) continue;
     if (place.suspended) continue;

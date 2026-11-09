@@ -97,7 +97,12 @@ class _ItineraryAddSheetState extends State<ItineraryAddSheet> {
                 ),
                 const SizedBox(height: AppSpace.xs),
                 if (places.isEmpty)
-                  const Text('이 날짜 도시에서 검색 결과가 없습니다.', style: AppType.footnote)
+                  Text(
+                    _query.trim().isEmpty
+                        ? '이 날짜 도시에 맞는 장소가 없습니다. 도시 이름이 상하이인지 확인해 주세요.'
+                        : '«$_query»에 맞는 장소가 없습니다. 한국어 이름(예: 외탄, 예원)으로 검색해 보세요.',
+                    style: AppType.footnote,
+                  )
                 else
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 260),
