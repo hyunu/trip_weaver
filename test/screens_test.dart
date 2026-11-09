@@ -53,6 +53,55 @@ void main() {
     expect(find.byKey(const Key('screen-title-itinerary')), findsOneWidget);
   });
 
+  testWidgets('확인된 도시 위치를 상세와 도시 위치 화면에서 다시 고른다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(390, 844));
+    final controller = TripController();
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('hero-title')));
+    await tester.pumpAndSettle();
+    const relocate = Key('detail-relocate-city-shanghai');
+    await _scrollTo(tester, find.byKey(relocate), find.byKey(const Key('trip-detail-scroll')));
+    await tester.tap(find.byKey(relocate));
+    await tester.pumpAndSettle();
+    expect(controller.tabIndex, 1);
+    expect(find.byKey(const Key('screen-title-city-edit')), findsOneWidget);
+    expect(find.text('새 위치를 고르세요'), findsOneWidget);
+    expect(find.text('지금 위치'), findsOneWidget);
+    expect(find.byKey(const Key('relocate-city-shanghai')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('cancel-relocate-city-shanghai')));
+    await tester.pumpAndSettle();
+    expect(find.text('새 위치를 고르세요'), findsNothing);
+    expect(find.text('좌표 31.2304, 121.4737'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('relocate-city-shanghai')));
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.byKey(const Key('candidate-city-shanghai-1')), find.byKey(const Key('city-edit-scroll')));
+    await tester.tap(find.byKey(const Key('candidate-city-shanghai-1')));
+    await tester.pumpAndSettle();
+    final city = controller.current!.cities.firstWhere((item) => item.id == 'city-shanghai');
+    expect(city.coordinateLabel, '31.2397, 121.4905');
+    expect(find.text('좌표 31.2397, 121.4905'), findsOneWidget);
+    expect(find.byKey(const Key('relocate-city-shanghai')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('작은 폰에서 위치 다시 고르기 후보가 넘치지 않는다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(320, 568));
+    final controller = TripController()
+      ..openCityEdit()
+      ..selectTab(1)
+      ..startRelocate('city-shanghai');
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('cancel-relocate-city-shanghai')), findsOneWidget);
+  });
+
   testWidgets('태블릿에서 다른 여행을 고른 뒤 진행 중 카드로 돌아올 수 있다', (tester) async {
     await tester.runAsync(warmSampleMap);
     await _setView(tester, const Size(1024, 1366));

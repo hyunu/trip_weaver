@@ -83,7 +83,7 @@ class TripDetailScreen extends StatelessWidget {
             Text('${trip.companionCount}명 · 본인 포함 총 $total명', key: const Key('detail-companions'), style: AppType.body),
             SectionLabel('도시 ${trip.cities.length}곳'),
             if (trip.cities.isEmpty) const Text('도시가 없습니다.', style: AppType.body),
-            for (final city in trip.cities) _CityRow(city: city),
+            for (final city in trip.cities) _CityRow(tripId: trip.id, city: city),
             if (unconfirmed > 0) ...[
               Text('위치가 확인되지 않은 도시 $unconfirmed곳은 탐색과 지도에 나오지 않습니다.', style: AppType.footnote),
               const SizedBox(height: AppSpace.xs),
@@ -138,8 +138,9 @@ class TripDetailScreen extends StatelessWidget {
 }
 
 class _CityRow extends StatelessWidget {
-  const _CityRow({required this.city});
+  const _CityRow({required this.tripId, required this.city});
 
+  final String tripId;
   final City city;
 
   @override
@@ -168,6 +169,19 @@ class _CityRow extends StatelessWidget {
             else ...[
               Text('좌표 ${city.coordinateLabel}', style: AppType.body),
               Text('출처 ${city.coordinateSource}', style: AppType.footnote),
+              const SizedBox(height: AppSpace.xs),
+              AppButton(
+                key: Key('detail-relocate-${city.id}'),
+                label: '위치 다시 고르기',
+                filled: false,
+                onPressed: () {
+                  final controller = TripScope.of(context);
+                  if (controller.currentTripId != tripId) controller.selectTrip(tripId);
+                  controller.openCityEdit();
+                  controller.selectTab(1);
+                  controller.startRelocate(city.id);
+                },
+              ),
             ],
           ],
         ),

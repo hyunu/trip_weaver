@@ -87,6 +87,7 @@ class City {
     this.coordinateConfirmed = false,
     this.coordinateLabel,
     this.coordinateSource,
+    this.coordinateCandidateId,
   });
 
   final String id;
@@ -98,6 +99,9 @@ class City {
   bool coordinateConfirmed;
   String? coordinateLabel;
   String? coordinateSource;
+
+  /// Null for sample data and files saved before re-picking existed.
+  String? coordinateCandidateId;
 }
 
 class GeoCandidate {

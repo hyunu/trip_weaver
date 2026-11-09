@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trip_weave/data/sample_catalog.dart';
+import 'package:trip_weave/logic/city_lookup.dart';
 import 'package:trip_weave/logic/trip_rules.dart';
 import 'package:trip_weave/model/models.dart';
 import 'package:trip_weave/state/trip_controller.dart';
@@ -80,6 +81,33 @@ void main() {
     await controller.restore();
     expect(controller.trips.every((trip) => trip.dataOriginMock), isTrue);
     expect(controller.currentTripId, 'trip-south');
+    await directory.delete(recursive: true);
+  });
+
+  test('다시 고른 도시 위치는 저장되고 예전 파일도 그대로 읽힌다', () async {
+    final catalog = buildSampleCatalog();
+    final directory = await Directory.systemTemp.createTemp('trip_weave_relocate');
+    final store = FileTripStore(File('${directory.path}/trips.json'));
+    final first = TripController(catalog: catalog, store: store);
+    first.selectTrip('trip-river');
+    first.startRelocate('city-shanghai');
+    first.pickCandidate('city-shanghai', first.cityCandidates['city-shanghai']![1]);
+    await first.persistenceSettled;
+    expect(await File('${directory.path}/trips.json').readAsString(), contains('"coordinateCandidateId":"shanghai-bund"'));
+
+    final reloaded = TripController(catalog: buildSampleCatalog(), store: store);
+    await reloaded.restore();
+    final city = reloaded.trips.singleWhere((trip) => trip.id == 'trip-river').cities.first;
+    expect(city.coordinateLabel, '31.2397, 121.4905');
+    expect(city.coordinateCandidateId, 'shanghai-bund');
+
+    final legacy = decodeTripSnapshot(
+      encodeTripSnapshot(TripSnapshot(trips: buildSampleCatalog().trips, currentTripId: 'trip-river', nextSeq: 1)),
+    );
+    final legacyCity = legacy.trips.singleWhere((trip) => trip.id == 'trip-river').cities.first;
+    expect(legacyCity.coordinateCandidateId, isNull);
+    expect(legacyCity.coordinateConfirmed, isTrue);
+    expect(isCurrentLocation(legacyCity, candidatesForCity(legacyCity.name).first), isTrue);
     await directory.delete(recursive: true);
   });
 }

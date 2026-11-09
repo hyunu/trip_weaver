@@ -15,3 +15,10 @@ List<GeoCandidate> candidatesForCity(String name) {
   }
   return const [];
 }
+
+bool isCurrentLocation(City city, GeoCandidate candidate) {
+  if (!city.coordinateConfirmed) return false;
+  final id = city.coordinateCandidateId;
+  if (id != null) return id == candidate.id;
+  return city.coordinateLabel == candidate.coordinateLabel && city.coordinateSource == candidate.sourceName;
+}

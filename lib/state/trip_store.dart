@@ -141,6 +141,7 @@ Map<String, Object?> _cityToJson(City city) {
     'coordinateConfirmed': city.coordinateConfirmed,
     'coordinateLabel': city.coordinateLabel,
     'coordinateSource': city.coordinateSource,
+    if (city.coordinateCandidateId != null) 'coordinateCandidateId': city.coordinateCandidateId,
   };
 }
 
@@ -155,6 +156,7 @@ City _cityFromJson(Map raw) {
     coordinateConfirmed: raw['coordinateConfirmed'] == true,
     coordinateLabel: raw['coordinateLabel'] as String?,
     coordinateSource: raw['coordinateSource'] as String?,
+    coordinateCandidateId: raw['coordinateCandidateId'] is String ? raw['coordinateCandidateId'] as String : null,
   );
 }
 

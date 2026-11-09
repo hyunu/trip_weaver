@@ -50,6 +50,7 @@ class TripController extends ChangeNotifier {
   String searchQuery = '';
   final Map<String, String> verificationNotes = {};
   final Map<String, List<GeoCandidate>> cityCandidates = {};
+  final Set<String> relocatingCityIds = {};
   final Map<String, double> scrollOffsets = {};
   final JournalBook journal = JournalBook();
   int _seq = 100;
@@ -390,35 +391,59 @@ class TripController extends ChangeNotifier {
 
   void closeCityEdit() {
     editingCity = false;
+    for (final id in relocatingCityIds) {
+      cityCandidates.remove(id);
+    }
+    relocatingCityIds.clear();
     notifyListeners();
+  }
+
+  /// Reopens candidate picking for a city whose location is already confirmed.
+  /// The confirmed coordinate stays until another candidate is picked.
+  void startRelocate(String cityId) {
+    if (_cityById(cityId) == null) return;
+    relocatingCityIds.add(cityId);
+    if (offline) {
+      notifyListeners();
+      return;
+    }
+    findCandidates(cityId);
+  }
+
+  void cancelRelocate(String cityId) {
+    if (!relocatingCityIds.remove(cityId)) return;
+    cityCandidates.remove(cityId);
+    notifyListeners();
+  }
+
+  City? _cityById(String cityId) {
+    final trip = current;
+    if (trip == null) return null;
+    for (final item in trip.cities) {
+      if (item.id == cityId) return item;
+    }
+    return null;
   }
 
   void findCandidates(String cityId) {
     if (offline) return;
-    final trip = current;
-    City? city;
-    if (trip != null) {
-      for (final item in trip.cities) {
-        if (item.id == cityId) city = item;
-      }
-    }
-    cityCandidates[cityId] = candidatesForCity(city?.name ?? '');
+    cityCandidates[cityId] = candidatesForCity(_cityById(cityId)?.name ?? '');
     notifyListeners();
   }
 
   void pickCandidate(String cityId, GeoCandidate candidate) {
     final trip = current;
-    if (trip == null) return;
-    City? found;
-    for (final item in trip.cities) {
-      if (item.id == cityId) found = item;
+    final city = _cityById(cityId);
+    if (trip == null || city == null) return;
+    if (!isCurrentLocation(city, candidate)) {
+      city.coordinateConfirmed = true;
+      city.coordinateLabel = candidate.coordinateLabel;
+      city.coordinateSource = candidate.sourceName;
+      city.coordinateCandidateId = candidate.id;
+      trip.pendingLocalEdits += 1;
     }
-    final city = found;
-    if (city == null) return;
-    city.coordinateConfirmed = true;
-    city.coordinateLabel = candidate.coordinateLabel;
-    city.coordinateSource = candidate.sourceName;
-    trip.pendingLocalEdits += 1;
+    relocatingCityIds.remove(cityId);
+    cityCandidates.remove(cityId);
     notifyListeners();
   }
 

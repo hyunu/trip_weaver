@@ -2,8 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
+import '../logic/city_lookup.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
+import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
 
@@ -57,6 +59,7 @@ class _CityEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
     final candidates = controller.cityCandidates[city.id];
+    final relocating = controller.relocatingCityIds.contains(city.id);
     return Container(
       key: Key('city-editor-${city.id}'),
       width: double.infinity,
@@ -75,6 +78,27 @@ class _CityEditor extends StatelessWidget {
             const SizedBox(height: AppSpace.xxs),
             Text('좌표 ${city.coordinateLabel}', style: AppType.body),
             Text('출처 ${city.coordinateSource}', style: AppType.footnote),
+            const SizedBox(height: AppSpace.sm),
+            if (!relocating)
+              AppButton(
+                key: Key('relocate-${city.id}'),
+                label: '위치 다시 고르기',
+                filled: false,
+                onPressed: controller.offline ? null : () => controller.startRelocate(city.id),
+              )
+            else ...[
+              AppButton(
+                key: Key('cancel-relocate-${city.id}'),
+                label: '다시 고르기 취소',
+                filled: false,
+                onPressed: () => controller.cancelRelocate(city.id),
+              ),
+              ..._candidateSection(controller, candidates, relocating: true),
+            ],
+            if (controller.offline) ...[
+              const SizedBox(height: AppSpace.xxs),
+              const Text('오프라인이라 위치 후보를 찾지 않습니다.', style: AppType.footnote),
+            ],
           ] else ...[
             _Status(confirmed: false),
             const SizedBox(height: AppSpace.sm),
@@ -88,24 +112,32 @@ class _CityEditor extends StatelessWidget {
               const SizedBox(height: AppSpace.xxs),
               const Text('오프라인이라 위치 후보를 찾지 않습니다.', style: AppType.footnote),
             ],
-            if (candidates != null && candidates.isEmpty) ...[
-              const SizedBox(height: AppSpace.xs),
-              Text('‘${city.name}’ 이름으로 찾은 위치 후보가 없습니다.', style: AppType.footnote),
-            ],
-            if (candidates != null && candidates.isNotEmpty) ...[
-              const SectionLabel('후보를 하나 고르세요'),
-              const Text('고르기 전에는 좌표를 저장하지 않습니다.', style: AppType.footnote),
-              for (var index = 0; index < candidates.length; index++)
-                _CandidateRow(
-                  key: Key('candidate-${city.id}-$index'),
-                  candidate: candidates[index],
-                  onTap: () => controller.pickCandidate(city.id, candidates[index]),
-                ),
-            ],
+            ..._candidateSection(controller, candidates, relocating: false),
           ],
         ],
       ),
     );
+  }
+
+  List<Widget> _candidateSection(TripController controller, List<GeoCandidate>? candidates, {required bool relocating}) {
+    if (candidates == null) return const [];
+    if (candidates.isEmpty) {
+      return [
+        const SizedBox(height: AppSpace.xs),
+        Text('‘${city.name}’ 이름으로 찾은 위치 후보가 없습니다.', style: AppType.footnote),
+      ];
+    }
+    return [
+      SectionLabel(relocating ? '새 위치를 고르세요' : '후보를 하나 고르세요'),
+      Text(relocating ? '고르기 전에는 지금 좌표를 그대로 둡니다.' : '고르기 전에는 좌표를 저장하지 않습니다.', style: AppType.footnote),
+      for (var index = 0; index < candidates.length; index++)
+        _CandidateRow(
+          key: Key('candidate-${city.id}-$index'),
+          candidate: candidates[index],
+          current: isCurrentLocation(city, candidates[index]),
+          onTap: () => controller.pickCandidate(city.id, candidates[index]),
+        ),
+    ];
   }
 }
 
@@ -133,9 +165,10 @@ class _Status extends StatelessWidget {
 }
 
 class _CandidateRow extends StatelessWidget {
-  const _CandidateRow({super.key, required this.candidate, required this.onTap});
+  const _CandidateRow({super.key, required this.candidate, required this.current, required this.onTap});
 
   final GeoCandidate candidate;
+  final bool current;
   final VoidCallback onTap;
 
   @override
@@ -162,10 +195,14 @@ class _CandidateRow extends StatelessWidget {
                       Text(candidate.label, style: AppType.headline),
                       const SizedBox(height: 2),
                       Text('${candidate.coordinateLabel} · ${candidate.sourceName}', style: AppType.footnote),
+                      if (current) ...[
+                        const SizedBox(height: 2),
+                        Text('지금 위치', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
+                      ],
                     ],
                   ),
                 ),
-                const Icon(CupertinoIcons.chevron_forward, size: 16, color: AppColors.tertiary),
+                current ? const Icon(CupertinoIcons.checkmark_alt, size: 16, color: AppColors.accent) : const Icon(CupertinoIcons.chevron_forward, size: 16, color: AppColors.tertiary),
               ],
             ),
           ),
