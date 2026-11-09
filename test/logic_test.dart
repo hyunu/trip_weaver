@@ -68,6 +68,17 @@ void main() {
     expect(previousVisit(today.items, controller.now)?.title, '외탄 공원');
   });
 
+  test('도착 표시는 시각보다 먼저 방문 완료로 친다', () {
+    final controller = TripController();
+    final trip = controller.current!;
+    final today = dayFor(trip.activeDays, controller.now)!;
+    final next = controller.destinationFor(trip)!;
+    controller.markVisitDone(next.id);
+    expect(controller.destinationFor(trip)?.title, '덕흥관');
+    final progress = visitProgress(today.items, controller.now, doneIds: trip.visitDoneIds);
+    expect(progress.done, greaterThan(visitProgress(today.items, controller.now).done));
+  });
+
   test('제안 적용 전에는 활성 일정이 유지된다', () {
     final controller = TripController();
     final before = _stayTitles(controller);

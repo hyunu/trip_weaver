@@ -265,6 +265,7 @@ Map<String, Object?> _tripToJson(Trip trip) {
     'links': trip.links.map((id, link) => MapEntry(id, _linkToJson(link))),
     'activeDays': trip.activeDays.map(_dayToJson).toList(),
     'proposalDays': trip.proposalDays?.map(_dayToJson).toList(),
+    if (trip.visitDoneIds.isNotEmpty) 'visitDoneIds': trip.visitDoneIds.toList(),
   };
 }
 
@@ -303,6 +304,7 @@ Trip? _tripFromJson(Map raw) {
     links: links,
     activeDays: _days(raw['activeDays']),
     proposalDays: raw['proposalDays'] == null ? null : _days(raw['proposalDays']),
+    visitDoneIds: _strings(raw['visitDoneIds']).toSet(),
   );
 }
 

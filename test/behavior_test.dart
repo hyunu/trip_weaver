@@ -105,7 +105,8 @@ void main() {
     expect(find.text('주변 장소'), findsOneWidget);
     expect(find.byType(AspectRatio), findsNothing);
     expect(find.byKey(const Key('map-tile')), findsNothing);
-    expect(find.text('대체 경로 없음'), findsOneWidget);
+    expect(find.text('대체 경로 없음'), findsNothing);
+    expect(find.byKey(const Key('underway-directions')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tab-journal')));
     await tester.pumpAndSettle();

@@ -14,7 +14,13 @@ class MapPin {
   final bool past;
 }
 
-List<MapPin> visitPins(DayPlan? day, Place? Function(String? id) lookup, {String? emphasizePlaceId, DateTime? now}) {
+List<MapPin> visitPins(
+  DayPlan? day,
+  Place? Function(String? id) lookup, {
+  String? emphasizePlaceId,
+  DateTime? now,
+  Set<String> doneIds = const {},
+}) {
   if (day == null) return const [];
   final pins = <MapPin>[];
   var order = 1;
@@ -24,7 +30,7 @@ List<MapPin> visitPins(DayPlan? day, Place? Function(String? id) lookup, {String
     final point = place == null ? null : placeGeo(place);
     if (place == null || point == null) continue;
     final next = place.id == emphasizePlaceId;
-    final ended = now != null && item.end != null && !item.end!.isAfter(now);
+    final ended = doneIds.contains(item.id) || (now != null && item.end != null && !item.end!.isAfter(now));
     pins.add(MapPin(id: item.id, placeId: place.id, point: point, label: item.title.isEmpty ? place.name : item.title, order: order, emphasized: next, past: ended && !next));
     order += 1;
   }

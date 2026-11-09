@@ -194,11 +194,13 @@ class Trip {
     List<DayPlan>? activeDays,
     List<DayPlan>? proposalDays,
     this.weatherSkipped = false,
+    Set<String>? visitDoneIds,
   }) : cities = List<City>.of(cities),
        tasteTags = List<String>.of(tasteTags ?? const []),
        links = links ?? <String, TripPlaceLink>{},
        activeDays = activeDays ?? <DayPlan>[],
-       proposalDays = proposalDays;
+       proposalDays = proposalDays,
+       visitDoneIds = visitDoneIds ?? <String>{};
 
   final String id;
   String title;
@@ -219,6 +221,7 @@ class Trip {
   List<DayPlan> activeDays;
   List<DayPlan>? proposalDays;
   bool weatherSkipped;
+  final Set<String> visitDoneIds;
 
   City? cityOn(DateTime day) {
     for (final city in cities) {
