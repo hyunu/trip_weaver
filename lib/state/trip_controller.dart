@@ -53,6 +53,7 @@ class TripController extends ChangeNotifier {
   final Map<String, List<GeoCandidate>> cityCandidates = {};
   final Set<String> relocatingCityIds = {};
   final Map<String, double> scrollOffsets = {};
+  final Map<String, ProposalExclusions> _proposalExclusions = {};
   final JournalBook journal = JournalBook();
   int _seq = 100;
   final TripStore? _store;
@@ -300,6 +301,11 @@ class TripController extends ChangeNotifier {
     final days = reviewingProposal ? trip.proposalDays : trip.activeDays;
     if (days == null) return;
     for (final day in days) {
+      if (reviewingProposal) {
+        for (final item in day.items.where((item) => item.id == itemId)) {
+          _proposalExclusions.putIfAbsent(trip.id, ProposalExclusions.new).record(item, day.date);
+        }
+      }
       day.items.removeWhere((item) => item.id == itemId);
     }
     if (selectedItemId == itemId) {
@@ -321,6 +327,15 @@ class TripController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  /// Items removed from the proposal under review; asking again leaves them out.
+  int excludedCount(Trip trip) => _proposalExclusions[trip.id]?.count ?? 0;
+
+  void restoreExcluded() {
+    final trip = current;
+    if (trip == null || _proposalExclusions.remove(trip.id) == null) return;
+    requestItinerary();
   }
 
   PlanItem? selectedItem() => selectedItemId == null ? null : _findItem(selectedItemId!);
@@ -355,6 +370,7 @@ class TripController extends ChangeNotifier {
     if (trip?.proposalDays == null) return;
     trip!.activeDays = trip.proposalDays!.map((day) => day.clone()).toList();
     trip.proposalDays = null;
+    _proposalExclusions.remove(trip.id);
     reviewingProposal = false;
     selectedItemId = null;
     itineraryPushed = false;
@@ -367,6 +383,7 @@ class TripController extends ChangeNotifier {
     final trip = current;
     if (trip == null || trip.proposalDays == null) return;
     trip.proposalDays = null;
+    _proposalExclusions.remove(trip.id);
     reviewingProposal = false;
     selectedItemId = null;
     itineraryPushed = false;
@@ -391,7 +408,7 @@ class TripController extends ChangeNotifier {
     }
     final viewing = visibleDays(trip);
     final pins = mergePins([viewing, if (!identical(viewing, trip.activeDays)) trip.activeDays, if (trip.proposalDays != null && !identical(viewing, trip.proposalDays)) trip.proposalDays!]);
-    final proposal = proposeItinerary(trip, places, pinnedFrom: pins);
+    final proposal = proposeItinerary(trip, places, pinnedFrom: pins, exclude: _proposalExclusions[trip.id]);
     if (proposal == null) return;
     trip.proposalDays = proposal;
     reviewingProposal = true;
@@ -474,6 +491,7 @@ class TripController extends ChangeNotifier {
 
   void deleteTrip(String id) {
     trips.removeWhere((trip) => trip.id == id);
+    _proposalExclusions.remove(id);
     if (currentTripId == id) {
       currentTripId = null;
       homePushed = false;

@@ -165,3 +165,10 @@ ProposalSummary summarizeProposal(List<DayPlan> days) {
   }
   return ProposalSummary(days: days.length, visits: visits, pinned: pinned, emptyDays: emptyDays);
 }
+
+/// Items other than moves, and how many of them are pinned, for a date chip.
+({int items, int pinned}) dayCounts(DayPlan? day) {
+  if (day == null) return (items: 0, pinned: 0);
+  final items = day.items.where((item) => item.kind != ItemKind.move).toList();
+  return (items: items.length, pinned: items.where((item) => item.locked).length);
+}

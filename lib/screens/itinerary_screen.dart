@@ -136,6 +136,7 @@ class _ItineraryHeader extends StatelessWidget {
     final controller = TripScope.of(context);
     final reviewing = controller.reviewingProposal;
     final summary = trip.proposalDays == null ? null : summarizeProposal(trip.proposalDays!);
+    final excluded = controller.excludedCount(trip);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
@@ -212,6 +213,22 @@ class _ItineraryHeader extends StatelessWidget {
                         style: AppType.footnote.copyWith(color: AppColors.warningFg),
                       ),
                   ],
+                  if (excluded > 0) ...[
+                    const SizedBox(height: AppSpace.xxs),
+                    Text(
+                      '제안에서 뺀 항목 $excluded개는 새로 제안받아도 다시 넣지 않습니다.',
+                      key: const Key('proposal-excluded'),
+                      style: AppType.footnote.copyWith(color: AppColors.warningFg),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('restore-excluded'),
+                        onPressed: controller.offline ? null : controller.restoreExcluded,
+                        child: const Text('뺀 항목 되살려 다시 제안받기'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpace.xs),
                   Row(
                     children: [
@@ -256,6 +273,13 @@ Future<void> _confirmDiscard(BuildContext context, TripController controller) {
   );
 }
 
+String _countNote(DayPlan? day, {required bool short}) {
+  final counts = dayCounts(day);
+  if (counts.items == 0) return '일정 없음';
+  final base = short ? '${counts.items}개' : '일정 ${counts.items}개';
+  return counts.pinned == 0 ? base : '$base · 고정 ${counts.pinned}';
+}
+
 class _DateChips extends StatelessWidget {
   const _DateChips({required this.trip});
 
@@ -276,10 +300,11 @@ class _DateChips extends StatelessWidget {
           final selected = sameDay(day, controller.planDate(trip));
           final today = sameDay(day, controller.now);
           return DateToken(
-            label: '${day.month}.${day.day}',
-            note: today ? '오늘' : weekdayKo(day),
+            key: Key('date-chip-${day.month}-${day.day}'),
+            label: '${day.month}.${day.day} ${today ? '오늘' : weekdayKo(day)}',
+            note: _countNote(dayFor(controller.visibleDays(trip), day), short: true),
             selected: selected,
-            width: 84,
+            width: 100,
             onTap: () => controller.selectDate(day),
           );
         },
@@ -305,8 +330,9 @@ class _DateColumn extends StatelessWidget {
         final selected = sameDay(day, controller.planDate(trip));
         final today = sameDay(day, controller.now);
         return DateRailTile(
+          key: Key('date-rail-${day.month}-${day.day}'),
           label: formatMonthDay(day),
-          note: today ? '${weekdayKo(day)} · 오늘' : weekdayKo(day),
+          note: '${today ? '${weekdayKo(day)} · 오늘' : weekdayKo(day)} · ${_countNote(dayFor(controller.visibleDays(trip), day), short: false)}',
           selected: selected,
           onTap: () => controller.selectDate(day),
         );
@@ -433,7 +459,7 @@ class ItemFacts extends StatelessWidget {
       builder: (dialogContext) {
         return AlertDialog(
           title: Text('‘${item.title}’ 항목을 ${proposal ? '제안에서 뺄까요?' : '일정에서 삭제할까요?'}', style: AppType.headline),
-          content: Text(proposal ? '적용하지 않은 제안에서만 빠집니다.' : '이 날짜의 일정에서 지워집니다. 되돌릴 수 없습니다.', style: AppType.body),
+          content: Text(proposal ? '적용하지 않은 제안에서만 빠집니다. 새로 제안받아도 다시 넣지 않습니다.' : '이 날짜의 일정에서 지워집니다. 되돌릴 수 없습니다.', style: AppType.body),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('취소')),
             TextButton(

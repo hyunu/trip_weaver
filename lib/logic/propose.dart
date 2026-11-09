@@ -14,6 +14,56 @@ int proposedDwell(PlaceCategory category) {
   }
 }
 
+/// What the user took out of a proposal under review, so asking again does
+/// not bring it back. Stays are dropped by place everywhere; meals, rests and
+/// gaps by their slot on that date.
+class ProposalExclusions {
+  ProposalExclusions({Set<String>? itemIds, Set<String>? placeIds, Set<String>? slots})
+    : itemIds = itemIds ?? <String>{},
+      placeIds = placeIds ?? <String>{},
+      slots = slots ?? <String>{};
+
+  final Set<String> itemIds;
+  final Set<String> placeIds;
+  final Set<String> slots;
+
+  bool get isEmpty => itemIds.isEmpty && placeIds.isEmpty && slots.isEmpty;
+  int get count => itemIds.length;
+
+  void record(PlanItem item, DateTime date) {
+    if (item.kind == ItemKind.move) return;
+    itemIds.add(item.id);
+    if (item.kind == ItemKind.stay && item.placeId != null) placeIds.add(item.placeId!);
+    final slot = slotOf(item);
+    if (slot != null) slots.add(slotKey(date, slot));
+  }
+
+  bool skips(PlanItem item) {
+    if (itemIds.contains(item.id)) return true;
+    if (item.kind == ItemKind.stay && placeIds.contains(item.placeId)) return true;
+    final slot = slotOf(item);
+    return slot != null && item.start != null && skipsSlot(item.start!, slot);
+  }
+
+  bool skipsSlot(DateTime date, String slot) => slots.contains(slotKey(date, slot));
+
+  static String? slotOf(PlanItem item) {
+    switch (item.kind) {
+      case ItemKind.meal:
+        return item.start != null && item.start!.hour >= 16 ? 'dinner' : 'lunch';
+      case ItemKind.rest:
+        return 'rest';
+      case ItemKind.gap:
+        return 'gap';
+      case ItemKind.move:
+      case ItemKind.stay:
+        return null;
+    }
+  }
+
+  static String slotKey(DateTime date, String slot) => '${date.year}-${date.month}-${date.day}/$slot';
+}
+
 const _moveMinutes = 15;
 const _mealMinutes = 90;
 
@@ -21,10 +71,13 @@ const _mealMinutes = 90;
 /// their time; generated items are fitted around them and their places are
 /// not proposed again. Selected places are spread over the city's days
 /// instead of repeating on every day.
-List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pinnedFrom = const []}) {
+List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pinnedFrom = const [], ProposalExclusions? exclude}) {
   if (trip.cities.isEmpty) return null;
+  final skip = exclude ?? ProposalExclusions();
   final dates = tripDays(trip);
-  final pinsByDate = {for (final date in dates) date: pinnedOn(pinnedFrom, date).map((item) => item.clone()).toList()};
+  final pinsByDate = {
+    for (final date in dates) date: pinnedOn(pinnedFrom, date).where((item) => !skip.skips(item)).map((item) => item.clone()).toList(),
+  };
   final pinnedPlaceIds = {
     for (final pins in pinsByDate.values)
       for (final pin in pins)
@@ -46,7 +99,7 @@ List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pi
   for (final city in trip.cities) {
     final cityDates = dates.where((date) => trip.cityOn(date)?.id == city.id).toList();
     if (cityDates.isEmpty) continue;
-    final selected = _selectedIn(trip, places, city).where((place) => !pinnedPlaceIds.contains(place.id)).toList();
+    final selected = _selectedIn(trip, places, city).where((place) => !pinnedPlaceIds.contains(place.id) && !skip.placeIds.contains(place.id)).toList();
     final visits = selected.where((place) => place.category != PlaceCategory.restaurant).toList();
     final restaurants = selected.where((place) => place.category == PlaceCategory.restaurant).toList();
     final perDay = (visits.length / cityDates.length).ceil();
@@ -66,6 +119,7 @@ List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pi
           day: date,
           pins: pinsByDate[date]!,
           nextId: () => nextId(date),
+          skipsSlot: (slot) => skip.skipsSlot(date, slot),
         ).build(trip.cityOn(date), visitsByDate[date] ?? const [], restaurantByDate[date]),
       ),
   ];
@@ -84,11 +138,12 @@ List<Place> _selectedIn(Trip trip, List<Place> places, City city) {
 }
 
 class _DayBuilder {
-  _DayBuilder({required this.day, required this.pins, required this.nextId}) : cursor = DateTime(day.year, day.month, day.day, 9);
+  _DayBuilder({required this.day, required this.pins, required this.nextId, required this.skipsSlot}) : cursor = DateTime(day.year, day.month, day.day, 9);
 
   final DateTime day;
   final List<PlanItem> pins;
   final String Function() nextId;
+  final bool Function(String slot) skipsSlot;
   final generated = <PlanItem>[];
   DateTime cursor;
 
@@ -96,6 +151,7 @@ class _DayBuilder {
 
   List<PlanItem> build(City? city, List<Place> visits, Place? restaurant) {
     if (city == null) {
+      if (skipsSlot('gap')) return _merged();
       generated.add(
         PlanItem(
           id: nextId(),
@@ -109,7 +165,7 @@ class _DayBuilder {
       return _merged();
     }
     if (!city.coordinateConfirmed) {
-      if (!_pinnedMeal(lunch: true)) {
+      if (!_pinnedMeal(lunch: true) && !skipsSlot('lunch')) {
         final start = _fit(at(12), _mealMinutes);
         generated.add(
           PlanItem(
@@ -127,7 +183,7 @@ class _DayBuilder {
       return _merged();
     }
 
-    var lunchPlaced = _pinnedMeal(lunch: true);
+    var lunchPlaced = _pinnedMeal(lunch: true) || skipsSlot('lunch');
     void addLunch() {
       if (lunchPlaced) return;
       lunchPlaced = true;
@@ -176,7 +232,7 @@ class _DayBuilder {
     addLunch();
 
     final busy = [...generated, ...pins].where((item) => visitKinds.contains(item.kind) && item.start != null && !item.start!.isAfter(cursor)).length;
-    if (busy >= 3) {
+    if (busy >= 3 && !skipsSlot('rest')) {
       _place(
         minutes: 30,
         from: cursor,
@@ -191,7 +247,7 @@ class _DayBuilder {
         ),
       );
     }
-    if (!_pinnedMeal(lunch: false)) {
+    if (!_pinnedMeal(lunch: false) && !skipsSlot('dinner')) {
       _place(
         minutes: _mealMinutes,
         from: cursor.isAfter(at(18)) ? cursor : at(18),

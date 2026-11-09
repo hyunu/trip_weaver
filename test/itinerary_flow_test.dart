@@ -112,6 +112,147 @@ void main() {
     });
   });
 
+  group('제안에서 뺀 항목', () {
+    List<PlanItem> all(TripController controller) => controller.current!.proposalDays!.expand((day) => day.items).toList();
+
+    test('검토 중에 뺀 장소는 새로 제안받아도 다시 들어오지 않는다', () {
+      final controller = TripController()..startReview();
+      controller.deleteItem('p1108-gallery');
+      expect(controller.excludedCount(controller.current!), 1);
+      controller.requestItinerary();
+      expect(all(controller).where((item) => item.placeId == 'gallery'), isEmpty);
+      expect(all(controller).where((item) => item.placeId == 'market'), hasLength(1));
+      controller.requestItinerary();
+      expect(all(controller).where((item) => item.placeId == 'gallery'), isEmpty);
+    });
+
+    test('뺀 저녁·점심 자리는 그 날짜에만 비운다', () {
+      final controller = TripController()..requestItinerary();
+      final trip = controller.current!;
+      final dinner = dayFor(trip.proposalDays!, DateTime(2026, 11, 7))!.items.lastWhere((item) => item.kind == ItemKind.meal);
+      expect(dinner.start!.hour, 18);
+      final lunch = dayFor(trip.proposalDays!, DateTime(2026, 11, 8))!.items.firstWhere((item) => item.placeId == 'noodle');
+      controller.deleteItem(dinner.id);
+      controller.deleteItem(lunch.id);
+      controller.requestItinerary();
+      final nov7 = dayFor(trip.proposalDays!, DateTime(2026, 11, 7))!;
+      final nov8 = dayFor(trip.proposalDays!, DateTime(2026, 11, 8))!;
+      final nov6 = dayFor(trip.proposalDays!, DateTime(2026, 11, 6))!;
+      expect(nov7.items.where((item) => item.kind == ItemKind.meal && item.start!.hour >= 16), isEmpty);
+      expect(nov8.items.where((item) => item.kind == ItemKind.meal && item.start!.hour < 16), isEmpty);
+      expect(nov6.items.where((item) => item.kind == ItemKind.meal), hasLength(2));
+      expect(nov6.items.any((item) => item.placeId == 'noodle'), isTrue);
+    });
+
+    test('제안에서 뺀 고정 항목은 현재 일정의 같은 고정으로 되살아나지 않는다', () {
+      final controller = TripController()..startReview();
+      controller.deleteItem('p1108-park');
+      controller.requestItinerary();
+      expect(all(controller).where((item) => item.placeId == 'park'), isEmpty);
+    });
+
+    test('되살리기, 적용, 버리기는 뺀 목록을 비운다', () {
+      final controller = TripController()..startReview();
+      final trip = controller.current!;
+      controller.deleteItem('p1108-gallery');
+      controller.restoreExcluded();
+      expect(controller.excludedCount(trip), 0);
+      expect(all(controller).where((item) => item.placeId == 'gallery'), hasLength(1));
+
+      controller.deleteItem(all(controller).firstWhere((item) => item.placeId == 'gallery').id);
+      controller.applyProposal();
+      expect(controller.excludedCount(trip), 0);
+      controller.requestItinerary();
+      expect(all(controller).where((item) => item.placeId == 'gallery'), hasLength(1));
+
+      controller.deleteItem(all(controller).firstWhere((item) => item.placeId == 'gallery').id);
+      controller.discardProposal();
+      expect(controller.excludedCount(trip), 0);
+    });
+
+    test('현재 일정에서 지운 항목은 제안 제외로 남기지 않는다', () {
+      final controller = TripController();
+      controller.deleteItem('d1108-gallery');
+      expect(controller.excludedCount(controller.current!), 0);
+      controller.requestItinerary();
+      expect(all(controller).where((item) => item.placeId == 'gallery'), hasLength(1));
+    });
+
+    testWidgets('화면에서 뺀 항목은 새로 제안받아도 돌아오지 않고, 되살릴 수 있다', (tester) async {
+      await tester.runAsync(warmSampleMap);
+      await _setView(tester, const Size(1024, 1366));
+      final controller = TripController()
+        ..selectTab(2)
+        ..startReview();
+      controller.openItem('p1108-gallery', tablet: true);
+      await tester.pumpWidget(TripWeaveApp(controller: controller));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('item-delete')));
+      await tester.pumpAndSettle();
+      expect(find.text('적용하지 않은 제안에서만 빠집니다. 새로 제안받아도 다시 넣지 않습니다.'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('confirm-delete-item')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('request-itinerary')));
+      await tester.pumpAndSettle();
+      expect(find.text('제안에서 뺀 항목 1개는 새로 제안받아도 다시 넣지 않습니다.'), findsOneWidget);
+      expect(all(controller).where((item) => item.placeId == 'gallery'), isEmpty);
+
+      await tester.tap(find.byKey(const Key('restore-excluded')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('proposal-excluded')), findsNothing);
+      expect(all(controller).where((item) => item.placeId == 'gallery'), hasLength(1));
+    });
+  });
+
+  group('날짜 칩', () {
+    test('이동을 뺀 항목 수와 고정 수를 센다', () {
+      final controller = TripController();
+      final day = dayFor(controller.current!.activeDays, DateTime(2026, 11, 8));
+      final counts = dayCounts(day);
+      expect((counts.items, counts.pinned), (6, 1));
+      expect(dayCounts(null), (items: 0, pinned: 0));
+    });
+
+    testWidgets('폰 날짜 칩은 그 날의 항목 수와 고정 수를 보여 준다', (tester) async {
+      await tester.runAsync(warmSampleMap);
+      await _setView(tester, const Size(320, 568));
+      final controller = TripController()..selectTab(2);
+      await tester.pumpWidget(TripWeaveApp(controller: controller));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final today = find.byKey(const Key('date-chip-11-8'));
+      expect(find.descendant(of: today, matching: find.text('11.8 오늘')), findsOneWidget);
+      expect(find.descendant(of: today, matching: find.text('6개 · 고정 1')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('date-chip-11-6')), matching: find.text('11.6 금')), findsOneWidget);
+
+      controller.startReview();
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: today, matching: find.text('4개 · 고정 1')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('빈 날은 일정 없음으로 표시한다', (tester) async {
+      await tester.runAsync(warmSampleMap);
+      await _setView(tester, const Size(390, 844));
+      final controller = TripController()..selectTab(2);
+      controller.current!.activeDays.removeWhere((day) => day.date.day == 9);
+      await tester.pumpWidget(TripWeaveApp(controller: controller));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byKey(const Key('date-chip-11-9')), matching: find.text('일정 없음')), findsOneWidget);
+    });
+
+    testWidgets('넓은 태블릿 날짜 열도 같은 정보를 보여 준다', (tester) async {
+      await tester.runAsync(warmSampleMap);
+      await _setView(tester, const Size(1366, 1024));
+      final controller = TripController()..selectTab(2);
+      await tester.pumpWidget(TripWeaveApp(controller: controller));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byKey(const Key('date-rail-11-8')), matching: find.text('일 · 오늘 · 일정 6개 · 고정 1')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('date-rail-11-10')), matching: find.text('화 · 일정 1개')), findsOneWidget);
+    });
+  });
+
   group('일정 보조 로직', () {
     test('여행 밖 날짜를 고르고 있으면 일정은 여행 첫날을 보여 준다', () {
       final controller = TripController(now: DateTime(2026, 12, 1, 9));
