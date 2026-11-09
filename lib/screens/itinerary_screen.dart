@@ -26,12 +26,19 @@ class ItineraryScreen extends StatelessWidget {
     if (trip == null) return const NeedTrip(title: '일정', titleKey: Key('screen-title-itinerary'));
     final header = _ItineraryHeader(trip: trip);
     if (!tablet) {
-      return Column(
-        children: [
-          header,
-          Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 8), child: _DateChips(trip: trip)),
-          Expanded(child: _DayPane(trip: trip, tablet: false)),
-        ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
+                child: SingleChildScrollView(primary: false, child: header),
+              ),
+              Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 8), child: _DateChips(trip: trip)),
+              Expanded(child: _DayPane(trip: trip, tablet: false)),
+            ],
+          );
+        },
       );
     }
     if (!wide) {
@@ -91,11 +98,14 @@ class _DayPane extends StatelessWidget {
     final pins = visitPins(day, controller.placeById, now: controller.now, emphasizePlaceId: nextToday ? next.placeId : null);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final mapHeight = (constraints.maxHeight - 176).clamp(120.0, 220.0);
+        final mapHeight = (constraints.maxHeight - 176).clamp(0.0, 220.0);
+        final showMap = mapHeight >= 96;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (pins.isEmpty)
+            if (!showMap)
+              const SizedBox.shrink()
+            else if (pins.isEmpty)
               const MapFrame(child: QuietEmpty(message: '이 날짜에 좌표가 확인된 장소가 없습니다.', icon: CupertinoIcons.map))
             else
               MapFrame(
@@ -124,7 +134,7 @@ class _ItineraryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
-    final deferred = controller.offline || controller.itineraryDeferred;
+    final reviewing = controller.reviewingProposal;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
@@ -141,40 +151,62 @@ class _ItineraryHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: AppButton(
-                  label: deferred ? '온라인이 되면 생성합니다' : '일정 만들기',
-                  onPressed: controller.requestItinerary,
+                  key: const Key('request-itinerary'),
+                  label: trip.activeDays.isEmpty && trip.proposalDays == null ? '일정 만들기' : '새로 제안받기',
+                  onPressed: controller.offline ? null : controller.requestItinerary,
                 ),
               ),
               if (trip.proposalDays != null) ...[
                 const SizedBox(width: 8),
                 Expanded(
                   child: AppButton(
-                    label: '제안 검토',
+                    key: const Key('toggle-proposal'),
+                    label: reviewing ? '현재 일정 보기' : '제안 검토',
                     filled: false,
-                    onPressed: controller.reviewingProposal ? controller.showActive : controller.startReview,
+                    onPressed: reviewing ? controller.showActive : controller.startReview,
                   ),
                 ),
               ],
             ],
           ),
+          if (controller.offline || controller.itineraryDeferred) ...[
+            const SizedBox(height: 6),
+            Text(
+              controller.offline ? '오프라인에서는 일정을 만들 수 없습니다. 연결되면 다시 누르세요.' : '오프라인일 때 누른 일정 만들기는 실행되지 않았습니다. 다시 누르세요.',
+              key: const Key('itinerary-offline-note'),
+              style: AppType.footnote,
+            ),
+          ],
           if (controller.itineraryError != null) ...[
             const SizedBox(height: 6),
             Text(controller.itineraryError!, style: AppType.footnote.copyWith(color: AppColors.danger)),
           ],
-          if (controller.reviewingProposal) ...[
-            const SizedBox(height: 8),
+          if (reviewing) ...[
+            const SizedBox(height: AppSpace.xs),
             Container(
+              key: const Key('proposal-review'),
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: AppColors.warningBg, borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.all(AppSpace.sm),
+              decoration: BoxDecoration(color: AppColors.warningBg, borderRadius: BorderRadius.circular(AppRadii.control)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('아직 적용하지 않은 일정입니다.', style: AppType.body),
-                  const SizedBox(height: 8),
-                  AppButton(label: '이 일정 적용', onPressed: controller.applyProposal),
-                  const SizedBox(height: 8),
-                  AppButton(label: '제안 버리기', filled: false, destructive: true, onPressed: controller.discardProposal),
+                  Text('아직 적용하지 않은 일정입니다.', style: AppType.headline.copyWith(color: AppColors.warningFg)),
+                  const SizedBox(height: 2),
+                  Text(
+                    trip.activeDays.isEmpty ? '적용하면 이 여행의 일정이 됩니다.' : '적용하면 지금 일정을 이 제안으로 바꿉니다.',
+                    style: AppType.footnote.copyWith(color: AppColors.warningFg),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Row(
+                    children: [
+                      Expanded(child: AppButton(key: const Key('apply-proposal'), label: '이 일정 적용', onPressed: controller.applyProposal)),
+                      const SizedBox(width: AppSpace.xs),
+                      Expanded(
+                        child: AppButton(key: const Key('discard-proposal'), label: '제안 버리기', filled: false, destructive: true, onPressed: controller.discardProposal),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -262,7 +294,17 @@ class _Timeline extends StatelessWidget {
           return ListView(
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: const [QuietEmpty(message: '이 날짜의 일정이 없습니다.')],
+            children: [
+              if (trip.activeDays.isEmpty && !controller.reviewingProposal)
+                const QuietEmpty(
+                  key: Key('itinerary-none'),
+                  title: '아직 일정이 없습니다.',
+                  message: '일정 만들기를 누르면 적용하기 전에 제안을 먼저 보여 줍니다.',
+                  icon: CupertinoIcons.calendar,
+                )
+              else
+                const QuietEmpty(message: '이 날짜의 일정이 없습니다.'),
+            ],
           );
         }
         return ListView.separated(
@@ -296,7 +338,7 @@ class ItemFacts extends StatelessWidget {
     final controller = TripScope.of(context);
     final item = controller.selectedItem();
     if (item == null) {
-      return const EmptyPane(title: '장소 사실', message: '일정을 고르세요.');
+      return const EmptyPane(title: '일정 항목', message: '일정을 고르세요.');
     }
     final place = controller.placeById(item.placeId);
     return ListView(
@@ -305,13 +347,28 @@ class ItemFacts extends StatelessWidget {
         if (onClose != null) BackRow(onPressed: onClose!),
         ScheduleBlock(item: item, proposal: controller.reviewingProposal),
         const SizedBox(height: 12),
-        AppButton(label: item.locked ? '고정 해제' : '고정', filled: item.locked, onPressed: () => controller.toggleLock(item.id)),
-        const SizedBox(height: 8),
-        AppButton(
-          label: '이 항목을 삭제합니다.',
-          filled: false,
-          destructive: true,
-          onPressed: () => _confirmDelete(context, controller, item.id),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                key: const Key('item-lock'),
+                label: item.locked ? '고정 해제' : '고정',
+                filled: false,
+                selected: item.locked,
+                onPressed: () => controller.toggleLock(item.id),
+              ),
+            ),
+            const SizedBox(width: AppSpace.xs),
+            Expanded(
+              child: AppButton(
+                key: const Key('item-delete'),
+                label: controller.reviewingProposal ? '제안에서 빼기' : '일정에서 삭제',
+                filled: false,
+                destructive: true,
+                onPressed: () => _confirmDelete(context, controller, item),
+              ),
+            ),
+          ],
         ),
         if (place != null) ...[
           const SizedBox(height: 16),
@@ -321,20 +378,24 @@ class ItemFacts extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, TripController controller, String id) {
+  Future<void> _confirmDelete(BuildContext context, TripController controller, PlanItem item) {
+    final proposal = controller.reviewingProposal;
     return showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('이 항목을 삭제합니다.', style: AppType.headline),
+          title: Text('‘${item.title}’ 항목을 ${proposal ? '제안에서 뺄까요?' : '일정에서 삭제할까요?'}', style: AppType.headline),
+          content: Text(proposal ? '적용하지 않은 제안에서만 빠집니다.' : '이 날짜의 일정에서 지워집니다. 되돌릴 수 없습니다.', style: AppType.body),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('취소', style: AppType.headline)),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('취소')),
             TextButton(
+              key: const Key('confirm-delete-item'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
               onPressed: () {
                 Navigator.pop(dialogContext);
-                controller.deleteItem(id);
+                controller.deleteItem(item.id);
               },
-              child: const Text('삭제', style: AppType.headline),
+              child: Text(proposal ? '빼기' : '삭제'),
             ),
           ],
         );
