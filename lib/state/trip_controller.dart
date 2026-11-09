@@ -80,6 +80,7 @@ class TripController extends ChangeNotifier {
   bool explorePushed = false;
   bool itineraryPushed = false;
   bool creating = false;
+  String? editingTripId;
   bool editingCity = false;
   bool offline = false;
   bool itineraryDeferred = false;
@@ -257,6 +258,7 @@ class TripController extends ChangeNotifier {
 
   void selectTrip(String id) {
     if (id != currentTripId) itineraryNotice = null;
+    if (id != editingTripId) editingTripId = null;
     currentTripId = id;
     final trip = current;
     if (trip != null) {
@@ -287,7 +289,21 @@ class TripController extends ChangeNotifier {
 
   void openCreate() {
     creating = true;
+    editingTripId = null;
     homePushed = false;
+    notifyListeners();
+  }
+
+  void openEditTrip(String id) {
+    if (trips.every((trip) => trip.id != id)) return;
+    if (currentTripId != id) selectTrip(id);
+    editingTripId = id;
+    creating = false;
+    notifyListeners();
+  }
+
+  void closeEditTrip() {
+    editingTripId = null;
     notifyListeners();
   }
 
@@ -599,6 +615,7 @@ class TripController extends ChangeNotifier {
   void deleteTrip(String id) {
     trips.removeWhere((trip) => trip.id == id);
     _proposalExclusions.remove(id);
+    if (editingTripId == id) editingTripId = null;
     if (currentTripId == id) {
       currentTripId = null;
       homePushed = false;
@@ -651,6 +668,94 @@ class TripController extends ChangeNotifier {
     creating = false;
     selectTrip(id);
     homePushed = true;
+    notifyListeners();
+    return null;
+  }
+
+  String? updateTrip(String id, TripDraft draft) {
+    final errors = validateTripDraft(draft);
+    if (errors.isNotEmpty) return errors.values.first;
+    if (draft.cities.isEmpty) return '도시를 하나 이상 추가하세요.';
+    Trip? trip;
+    for (final item in trips) {
+      if (item.id == id) {
+        trip = item;
+        break;
+      }
+    }
+    if (trip == null) return '여행을 찾을 수 없습니다.';
+
+    bool dropped(DayPlan day) => editRemovesDay(trip!, draft, day.date);
+    final droppedItemIds = {
+      for (final day in [...trip.activeDays, ...?trip.proposalDays])
+        if (dropped(day)) ...day.items.map((item) => item.id),
+    };
+    trip.activeDays = trip.activeDays.where((day) => !dropped(day)).toList();
+    final proposal = trip.proposalDays?.where((day) => !dropped(day)).toList();
+    trip.proposalDays = proposal == null || proposal.isEmpty ? null : proposal;
+    if (trip.proposalDays == null && currentTripId == id) reviewingProposal = false;
+    if (currentTripId == id && droppedItemIds.contains(selectedItemId)) {
+      selectedItemId = null;
+      itineraryPushed = false;
+    }
+
+    final previous = {for (final city in trip.cities) city.id: city};
+    final cities = <City>[];
+    for (var index = 0; index < draft.cities.length; index++) {
+      final source = draft.cities[index];
+      final name = source.name.trim();
+      final countryCode = source.countryCode.trim().toUpperCase();
+      final existing = source.id == null ? null : previous.remove(source.id);
+      if (existing == null) {
+        cities.add(City(id: 'city-${_seq++}', name: name, countryCode: countryCode, start: dateOnly(source.start!), end: dateOnly(source.end!), sortOrder: index));
+        continue;
+      }
+      if (existing.name != name || existing.countryCode != countryCode) {
+        existing
+          ..coordinateConfirmed = false
+          ..coordinateLabel = null
+          ..coordinateSource = null
+          ..coordinateCandidateId = null;
+        relocatingCityIds.remove(existing.id);
+        cityCandidates.remove(existing.id);
+      }
+      existing
+        ..name = name
+        ..countryCode = countryCode
+        ..start = dateOnly(source.start!)
+        ..end = dateOnly(source.end!)
+        ..sortOrder = index;
+      cities.add(existing);
+    }
+    for (final removed in previous.keys) {
+      relocatingCityIds.remove(removed);
+      cityCandidates.remove(removed);
+    }
+
+    final country = draft.countryCode.trim().toUpperCase();
+    trip
+      ..title = draft.title.trim()
+      ..countryCode = country
+      ..countryName = countryNames[country] ?? country
+      ..start = dateOnly(draft.start!)
+      ..end = dateOnly(draft.end!)
+      ..purpose = draft.purpose.trim()
+      ..tasteTags = List<String>.of(draft.tasteTags)
+      ..budgetAmount = draft.budgetAmount.trim().isEmpty ? null : int.parse(draft.budgetAmount.trim())
+      ..budgetCurrency = draft.budgetCurrency.trim().isEmpty ? null : draft.budgetCurrency.trim()
+      ..companionCount = draft.companionCount
+      ..cities = cities
+      ..pendingLocalEdits += 1;
+
+    editingTripId = null;
+    if (currentTripId == id) {
+      final fallback = containsDay(trip.start, trip.end, now) ? dateOnly(now) : dateOnly(trip.start);
+      if (!containsDay(trip.start, trip.end, selectedDate)) selectedDate = fallback;
+      if (!containsDay(trip.start, trip.end, journalDate)) journalDate = fallback;
+      if (cities.every((city) => city.id != selectedCityId)) {
+        selectedCityId = cities.firstWhere((city) => city.coordinateConfirmed, orElse: () => cities.first).id;
+      }
+    }
     notifyListeners();
     return null;
   }

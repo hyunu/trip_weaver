@@ -342,6 +342,62 @@ void main() {
     });
   }
 
+  testWidgets('여행 상세에서 편집해 제목을 바꾼다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(390, 844));
+    final controller = TripController();
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('hero-title')));
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.byKey(const Key('detail-edit-trip')), find.byKey(const Key('trip-detail-scroll')));
+    await tester.tap(find.byKey(const Key('detail-edit-trip')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('form-heading')), findsOneWidget);
+    expect(find.text('여행 편집'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('form-title')));
+    await tester.pump();
+    final titleField = tester.widget<TextField>(find.byKey(const Key('form-title')));
+    titleField.controller!.value = const TextEditingValue(text: '가을 상하이만');
+    await tester.pump();
+    await _scrollTo(tester, find.byKey(const Key('form-save')), find.byKey(const Key('trip-form-scroll')));
+    await tester.tap(find.byKey(const Key('form-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('가을 상하이만'), findsOneWidget);
+    expect(controller.current!.title, '가을 상하이만');
+    expect(controller.editingTripId, isNull);
+  });
+
+  testWidgets('도시를 빼면 지워질 일정 항목 수를 확인한다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(390, 844));
+    final controller = TripController();
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final beforeItems = controller.current!.activeDays.fold<int>(0, (sum, day) => sum + day.items.length);
+    await tester.tap(find.byKey(const Key('hero-title')));
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.byKey(const Key('detail-edit-trip')), find.byKey(const Key('trip-detail-scroll')));
+    await tester.tap(find.byKey(const Key('detail-edit-trip')));
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.byKey(const Key('form-remove-city-1')), find.byKey(const Key('trip-form-scroll')));
+    await tester.tap(find.byKey(const Key('form-remove-city-1')));
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.byKey(const Key('form-save')), find.byKey(const Key('trip-form-scroll')));
+    await tester.tap(find.byKey(const Key('form-save')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-removal-message')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-edit-trip')));
+    await tester.pumpAndSettle();
+
+    expect(controller.current!.cities.length, 1);
+    final afterItems = controller.current!.activeDays.fold<int>(0, (sum, day) => sum + day.items.length);
+    expect(afterItems, lessThan(beforeItems));
+  });
+
   testWidgets('보통 폰의 일정 화면은 지도를 유지한다', (tester) async {
     await tester.runAsync(warmSampleMap);
     await _setView(tester, const Size(390, 844));
