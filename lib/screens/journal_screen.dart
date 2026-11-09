@@ -30,7 +30,11 @@ class JournalScreen extends StatelessWidget {
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              PageHeader(title: '기록', titleKey: const Key('screen-title-journal'), subtitle: '${cityTripLabel(controller.selectedCity?.name, trip.title)} · ${formatRange(trip.start, trip.end)}'),
+              PageHeader(
+                title: '기록',
+                titleKey: const Key('screen-title-journal'),
+                subtitleWidget: TripContextSubtitle(trailingLine: formatRange(trip.start, trip.end)),
+              ),
               StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
               const SizedBox(height: 12),
               _DateStrip(trip: trip),
@@ -50,7 +54,11 @@ class JournalScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PageHeader(title: '기록', titleKey: const Key('screen-title-journal'), subtitle: '${cityTripLabel(controller.selectedCity?.name, trip.title)} · ${formatRange(trip.start, trip.end)}'),
+              PageHeader(
+                title: '기록',
+                titleKey: const Key('screen-title-journal'),
+                subtitleWidget: TripContextSubtitle(trailingLine: formatRange(trip.start, trip.end)),
+              ),
               StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
             ],
           ),

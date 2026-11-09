@@ -48,6 +48,29 @@ bool isPast(Trip trip, DateTime now) {
   return dateOnly(trip.end).isBefore(dateOnly(now)) && trip.status != TripStatus.active;
 }
 
+/// Calendar days from [now] until [trip] starts (0 = today or already started).
+int daysUntilStart(Trip trip, DateTime now) => dateOnly(trip.start).difference(dateOnly(now)).inDays;
+
+String countdownToTrip(Trip trip, DateTime now) {
+  final days = daysUntilStart(trip, now);
+  if (days <= 0) return '오늘 출발';
+  return 'D-$days';
+}
+
+Trip? nearestUpcomingTrip(Iterable<Trip> trips, DateTime now) {
+  Trip? pick;
+  var best = 1 << 30;
+  for (final trip in trips) {
+    if (isOngoing(trip, now) || isPast(trip, now)) continue;
+    final days = daysUntilStart(trip, now);
+    if (days < best) {
+      best = days;
+      pick = trip;
+    }
+  }
+  return pick;
+}
+
 String nextScheduleLine(Trip trip, DateTime now) {
   if (trip.status == TripStatus.completed || trip.status == TripStatus.archived) return '끝난 여행';
   if (dateOnly(trip.end).isBefore(dateOnly(now)) && trip.status != TripStatus.active) return '끝난 여행';

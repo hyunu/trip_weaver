@@ -147,7 +147,7 @@ class _ItineraryHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PageHeader(title: '일정', titleKey: const Key('screen-title-itinerary'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
+          PageHeader(title: '일정', titleKey: const Key('screen-title-itinerary'), subtitleWidget: const TripContextSubtitle()),
           StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
           if (trip.weatherSkipped) ...[
             const SizedBox(height: 8),

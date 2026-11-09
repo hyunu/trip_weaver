@@ -54,7 +54,7 @@ class UnderwayScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PageHeader(title: '여행 중', titleKey: const Key('screen-title-underway'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
+                PageHeader(title: '여행 중', titleKey: const Key('screen-title-underway'), subtitleWidget: const TripContextSubtitle()),
                 StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
               ],
             ),
@@ -80,7 +80,7 @@ class UnderwayScreen extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: PageHeader(title: '여행 중', titleKey: const Key('screen-title-underway'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
+          child: const PageHeader(title: '여행 중', titleKey: Key('screen-title-underway'), subtitleWidget: TripContextSubtitle()),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
