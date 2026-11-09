@@ -1,4 +1,5 @@
 import '../model/models.dart';
+import 'schedule.dart';
 
 int proposedDwell(PlaceCategory category) {
   switch (category) {
@@ -13,48 +14,64 @@ int proposedDwell(PlaceCategory category) {
   }
 }
 
-List<DayPlan>? proposeItinerary(Trip trip, List<Place> places) {
+const _moveMinutes = 15;
+const _mealMinutes = 90;
+
+/// Builds a fresh proposal. Items pinned in [pinnedFrom] stay on their date at
+/// their time; generated items are fitted around them and their places are
+/// not proposed again. Selected places are spread over the city's days
+/// instead of repeating on every day.
+List<DayPlan>? proposeItinerary(Trip trip, List<Place> places, {List<DayPlan> pinnedFrom = const []}) {
   if (trip.cities.isEmpty) return null;
-  final days = <DayPlan>[];
+  final dates = tripDays(trip);
+  final pinsByDate = {for (final date in dates) date: pinnedOn(pinnedFrom, date).map((item) => item.clone()).toList()};
+  final pinnedPlaceIds = {
+    for (final pins in pinsByDate.values)
+      for (final pin in pins)
+        if (pin.placeId != null) pin.placeId!,
+  };
+  final usedIds = {for (final pins in pinsByDate.values) for (final pin in pins) pin.id};
   var seq = 0;
-  var day = dateOnly(trip.start);
-  final last = dateOnly(trip.end);
-  while (!day.isAfter(last)) {
-    days.add(DayPlan(date: day, items: _dayItems(trip, places, day, () => 'gen-${day.month}${day.day}-${seq++}')));
-    day = day.add(const Duration(days: 1));
+  String nextId(DateTime day) {
+    String id;
+    do {
+      id = 'gen-${day.month.toString().padLeft(2, '0')}${day.day.toString().padLeft(2, '0')}-${seq++}';
+    } while (usedIds.contains(id));
+    usedIds.add(id);
+    return id;
   }
-  return days;
+
+  final visitsByDate = <DateTime, List<Place>>{};
+  final restaurantByDate = <DateTime, Place?>{};
+  for (final city in trip.cities) {
+    final cityDates = dates.where((date) => trip.cityOn(date)?.id == city.id).toList();
+    if (cityDates.isEmpty) continue;
+    final selected = _selectedIn(trip, places, city).where((place) => !pinnedPlaceIds.contains(place.id)).toList();
+    final visits = selected.where((place) => place.category != PlaceCategory.restaurant).toList();
+    final restaurants = selected.where((place) => place.category == PlaceCategory.restaurant).toList();
+    final perDay = (visits.length / cityDates.length).ceil();
+    for (var index = 0; index < cityDates.length; index++) {
+      final from = (index * perDay).clamp(0, visits.length);
+      final to = ((index + 1) * perDay).clamp(0, visits.length);
+      visitsByDate[cityDates[index]] = visits.sublist(from, to);
+      restaurantByDate[cityDates[index]] = restaurants.isEmpty ? null : restaurants[index % restaurants.length];
+    }
+  }
+
+  return [
+    for (final date in dates)
+      DayPlan(
+        date: date,
+        items: _DayBuilder(
+          day: date,
+          pins: pinsByDate[date]!,
+          nextId: () => nextId(date),
+        ).build(trip.cityOn(date), visitsByDate[date] ?? const [], restaurantByDate[date]),
+      ),
+  ];
 }
 
-List<PlanItem> _dayItems(Trip trip, List<Place> places, DateTime day, String Function() nextId) {
-  final city = trip.cityOn(day);
-  if (city == null) {
-    return [
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.gap,
-        title: '이 날짜의 도시가 지정되지 않았습니다',
-        start: DateTime(day.year, day.month, day.day, 9),
-        unconfirmedFields: const ['도시'],
-        warnings: const [ItemWarning.cityUnassigned],
-      ),
-    ];
-  }
-  if (!city.coordinateConfirmed) {
-    return [
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.meal,
-        title: '식사, 장소 미정',
-        start: DateTime(day.year, day.month, day.day, 12),
-        end: DateTime(day.year, day.month, day.day, 13, 30),
-        unconfirmedFields: const ['장소', '예약', '메뉴'],
-        dwellIsProposal: true,
-        note: '도시 위치가 확인되지 않았습니다.',
-      ),
-    ];
-  }
-
+List<Place> _selectedIn(Trip trip, List<Place> places, City city) {
   final selected = <Place>[];
   for (final place in places) {
     if (place.cityName != city.name) continue;
@@ -63,108 +80,191 @@ List<PlanItem> _dayItems(Trip trip, List<Place> places, DateTime day, String Fun
     if (place.suspended) continue;
     selected.add(place);
   }
-  final visits = selected.where((place) => place.category != PlaceCategory.restaurant).toList();
-  final restaurants = selected.where((place) => place.category == PlaceCategory.restaurant).toList();
-  final items = <PlanItem>[];
-  var cursor = DateTime(day.year, day.month, day.day, 9);
-  var lunchPlaced = false;
+  return selected;
+}
 
-  void addMove() {
-    final end = cursor.add(const Duration(minutes: 15));
-    items.add(
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.move,
-        title: '',
-        start: cursor,
-        end: end,
-        unconfirmedFields: const ['경로'],
-        warnings: const [ItemWarning.estimatedGeometry],
-      ),
-    );
-    cursor = end;
-  }
+class _DayBuilder {
+  _DayBuilder({required this.day, required this.pins, required this.nextId}) : cursor = DateTime(day.year, day.month, day.day, 9);
 
-  void addLunch() {
-    if (lunchPlaced) return;
-    final start = cursor.isBefore(DateTime(day.year, day.month, day.day, 12))
-        ? DateTime(day.year, day.month, day.day, 12)
-        : cursor;
-    final place = restaurants.isEmpty ? null : restaurants.first;
-    items.add(
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.meal,
-        title: place?.name ?? '식사, 장소 미정',
-        placeId: place?.id,
-        categoryLabel: '음식점',
-        start: start,
-        end: DateTime(start.year, start.month, start.day, start.hour, start.minute + 90),
-        unconfirmedFields: _mealFields(place),
-        dwellIsProposal: true,
-        note: '식사 시각은 초기 제안이며 현지 관습의 확정이 아닙니다.',
-      ),
-    );
-    cursor = start.add(const Duration(minutes: 90));
-    lunchPlaced = true;
-  }
+  final DateTime day;
+  final List<PlanItem> pins;
+  final String Function() nextId;
+  final generated = <PlanItem>[];
+  DateTime cursor;
 
-  for (var index = 0; index < visits.length; index++) {
-    final place = visits[index];
-    final dwell = proposedDwell(place.category);
-    if (!lunchPlaced && !cursor.add(Duration(minutes: dwell)).isBefore(DateTime(day.year, day.month, day.day, 12, 1)) && cursor.hour >= 11) {
-      addLunch();
-      addMove();
-    } else if (index > 0) {
-      addMove();
+  DateTime at(int hour, [int minute = 0]) => DateTime(day.year, day.month, day.day, hour, minute);
+
+  List<PlanItem> build(City? city, List<Place> visits, Place? restaurant) {
+    if (city == null) {
+      generated.add(
+        PlanItem(
+          id: nextId(),
+          kind: ItemKind.gap,
+          title: '이 날짜의 도시가 지정되지 않았습니다',
+          start: at(9),
+          unconfirmedFields: const ['도시'],
+          warnings: const [ItemWarning.cityUnassigned],
+        ),
+      );
+      return _merged();
     }
-    final end = cursor.add(Duration(minutes: dwell));
-    items.add(
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.stay,
-        title: place.name,
-        placeId: place.id,
-        categoryLabel: categoryName(place.category),
-        start: cursor,
-        end: end,
-        unconfirmedFields: _unconfirmed(place),
-        warnings: _warnings(place),
-        hoursConflict: _hoursConflict(place),
-        dwellIsProposal: true,
-      ),
-    );
+    if (!city.coordinateConfirmed) {
+      if (!_pinnedMeal(lunch: true)) {
+        final start = _fit(at(12), _mealMinutes);
+        generated.add(
+          PlanItem(
+            id: nextId(),
+            kind: ItemKind.meal,
+            title: '식사, 장소 미정',
+            start: start,
+            end: start.add(const Duration(minutes: _mealMinutes)),
+            unconfirmedFields: const ['장소', '예약', '메뉴'],
+            dwellIsProposal: true,
+            note: '도시 위치가 확인되지 않았습니다.',
+          ),
+        );
+      }
+      return _merged();
+    }
+
+    var lunchPlaced = _pinnedMeal(lunch: true);
+    void addLunch() {
+      if (lunchPlaced) return;
+      lunchPlaced = true;
+      final from = cursor.isBefore(at(12)) ? at(12) : cursor;
+      _place(
+        minutes: _mealMinutes,
+        from: from,
+        travel: restaurant != null,
+        build: (start, end) => PlanItem(
+          id: nextId(),
+          kind: ItemKind.meal,
+          title: restaurant?.name ?? '식사, 장소 미정',
+          placeId: restaurant?.id,
+          categoryLabel: '음식점',
+          start: start,
+          end: end,
+          unconfirmedFields: _mealFields(restaurant),
+          dwellIsProposal: true,
+          note: '식사 시각은 초기 제안이며 현지 관습의 확정이 아닙니다.',
+        ),
+      );
+    }
+
+    for (final place in visits) {
+      final dwell = proposedDwell(place.category);
+      if (!lunchPlaced && cursor.hour >= 11 && cursor.add(Duration(minutes: dwell)).isAfter(at(12))) addLunch();
+      _place(
+        minutes: dwell,
+        from: cursor,
+        travel: true,
+        build: (start, end) => PlanItem(
+          id: nextId(),
+          kind: ItemKind.stay,
+          title: place.name,
+          placeId: place.id,
+          categoryLabel: categoryName(place.category),
+          start: start,
+          end: end,
+          unconfirmedFields: _unconfirmed(place),
+          warnings: _warnings(place),
+          hoursConflict: _hoursConflict(place),
+          dwellIsProposal: true,
+        ),
+      );
+    }
+    addLunch();
+
+    final busy = [...generated, ...pins].where((item) => visitKinds.contains(item.kind) && item.start != null && !item.start!.isAfter(cursor)).length;
+    if (busy >= 3) {
+      _place(
+        minutes: 30,
+        from: cursor,
+        travel: false,
+        build: (start, end) => PlanItem(
+          id: nextId(),
+          kind: ItemKind.rest,
+          title: '휴식',
+          start: start,
+          end: end,
+          note: '연속 방문 뒤에 제안한 휴식입니다.',
+        ),
+      );
+    }
+    if (!_pinnedMeal(lunch: false)) {
+      _place(
+        minutes: _mealMinutes,
+        from: cursor.isAfter(at(18)) ? cursor : at(18),
+        travel: false,
+        build: (start, end) => PlanItem(
+          id: nextId(),
+          kind: ItemKind.meal,
+          title: '식사, 장소 미정',
+          start: start,
+          end: end,
+          unconfirmedFields: const ['장소', '예약', '메뉴'],
+          dwellIsProposal: true,
+          note: '저녁 슬롯은 초기 제안이며 현지 관습의 확정이 아닙니다.',
+        ),
+      );
+    }
+    return _merged();
+  }
+
+  bool _pinnedMeal({required bool lunch}) {
+    return pins.any((pin) => pin.kind == ItemKind.meal && pin.start != null && (lunch ? pin.start!.hour < 16 : pin.start!.hour >= 16));
+  }
+
+  /// Earliest start at or after [from] where [minutes] fits between pins.
+  DateTime _fit(DateTime from, int minutes) {
+    var start = from;
+    var moved = true;
+    while (moved) {
+      moved = false;
+      for (final pin in pins) {
+        if (pin.start == null) continue;
+        final end = start.add(Duration(minutes: minutes));
+        if (start.isBefore(pinEnd(pin)) && end.isAfter(pin.start!)) {
+          start = pinEnd(pin);
+          moved = true;
+        }
+      }
+    }
+    return start;
+  }
+
+  void _place({required int minutes, required DateTime from, required bool travel, required PlanItem Function(DateTime start, DateTime end) build}) {
+    var start = _fit(from, minutes);
+    final hasPrevious = generated.isNotEmpty || pins.any((pin) => pin.start != null && !pin.start!.isAfter(start));
+    if (travel && hasPrevious) {
+      final moveStart = _fit(from, _moveMinutes + minutes);
+      start = moveStart.add(const Duration(minutes: _moveMinutes));
+      generated.add(
+        PlanItem(
+          id: nextId(),
+          kind: ItemKind.move,
+          title: '',
+          start: moveStart,
+          end: start,
+          unconfirmedFields: const ['경로'],
+          warnings: const [ItemWarning.estimatedGeometry],
+        ),
+      );
+    }
+    final end = start.add(Duration(minutes: minutes));
+    generated.add(build(start, end));
     cursor = end;
   }
-  addLunch();
-  if (items.where((item) => item.kind == ItemKind.stay || item.kind == ItemKind.meal).length >= 3) {
-    final end = cursor.add(const Duration(minutes: 30));
-    items.add(
-      PlanItem(
-        id: nextId(),
-        kind: ItemKind.rest,
-        title: '휴식',
-        start: cursor,
-        end: end,
-        note: '연속 방문 뒤에 제안한 휴식입니다.',
-      ),
-    );
-    cursor = end;
+
+  List<PlanItem> _merged() {
+    final timed = [...pins.where((pin) => pin.start != null), ...generated];
+    final order = {for (var index = 0; index < timed.length; index++) timed[index]: index};
+    timed.sort((a, b) {
+      final byStart = a.start!.compareTo(b.start!);
+      return byStart != 0 ? byStart : order[a]!.compareTo(order[b]!);
+    });
+    return [...pins.where((pin) => pin.start == null), ...timed];
   }
-  final dinnerStart = DateTime(day.year, day.month, day.day, 18);
-  items.add(
-    PlanItem(
-      id: nextId(),
-      kind: ItemKind.meal,
-      title: '식사, 장소 미정',
-      start: dinnerStart,
-      end: DateTime(day.year, day.month, day.day, 19, 30),
-      unconfirmedFields: const ['장소', '예약', '메뉴'],
-      dwellIsProposal: true,
-      note: '저녁 슬롯은 초기 제안이며 현지 관습의 확정이 아닙니다.',
-    ),
-  );
-  return items;
 }
 
 String categoryName(PlaceCategory category) {

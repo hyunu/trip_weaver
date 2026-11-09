@@ -46,6 +46,7 @@ class TripController extends ChangeNotifier {
   bool offline = false;
   bool itineraryDeferred = false;
   String? itineraryError;
+  String? itineraryNotice;
   PlaceCategory? categoryFilter;
   String searchQuery = '';
   final Map<String, String> verificationNotes = {};
@@ -118,7 +119,13 @@ class TripController extends ChangeNotifier {
     return trip.activeDays;
   }
 
-  DayPlan? visibleDay(Trip trip) => dayFor(visibleDays(trip), selectedDate);
+  DayPlan? visibleDay(Trip trip) => dayFor(visibleDays(trip), planDate(trip));
+
+  /// [selectedDate] when it falls inside [trip], otherwise today or the first day.
+  DateTime planDate(Trip trip) {
+    if (containsDay(trip.start, trip.end, selectedDate)) return selectedDate;
+    return containsDay(trip.start, trip.end, now) ? dateOnly(now) : dateOnly(trip.start);
+  }
 
   PlanItem? destinationFor(Trip trip) => nextDestination(trip, now);
 
@@ -141,6 +148,7 @@ class TripController extends ChangeNotifier {
   }
 
   void selectTrip(String id) {
+    if (id != currentTripId) itineraryNotice = null;
     currentTripId = id;
     final trip = current;
     if (trip != null) {
@@ -317,9 +325,19 @@ class TripController extends ChangeNotifier {
 
   PlanItem? selectedItem() => selectedItemId == null ? null : _findItem(selectedItemId!);
 
+  void openActiveItem(PlanItem item, {required bool tablet}) {
+    reviewingProposal = false;
+    selectedDate = dateOnly(item.start ?? now);
+    selectedItemId = item.id;
+    itineraryPushed = !tablet;
+    tabIndex = 2;
+    notifyListeners();
+  }
+
   void startReview() {
     if (current?.proposalDays == null) return;
     reviewingProposal = true;
+    itineraryNotice = null;
     selectedItemId = null;
     itineraryPushed = false;
     notifyListeners();
@@ -340,23 +358,26 @@ class TripController extends ChangeNotifier {
     reviewingProposal = false;
     selectedItemId = null;
     itineraryPushed = false;
+    itineraryNotice = '제안을 적용했습니다. 이제 이 일정이 여행 중 화면의 기준입니다.';
     trip.pendingLocalEdits += 1;
     notifyListeners();
   }
 
   void discardProposal() {
     final trip = current;
-    if (trip == null) return;
+    if (trip == null || trip.proposalDays == null) return;
     trip.proposalDays = null;
     reviewingProposal = false;
     selectedItemId = null;
     itineraryPushed = false;
+    itineraryNotice = trip.activeDays.isEmpty ? '제안을 버렸습니다.' : '제안을 버렸습니다. 지금 일정은 그대로입니다.';
     notifyListeners();
   }
 
   void requestItinerary() {
     final trip = current;
     if (trip == null) return;
+    itineraryNotice = null;
     if (offline) {
       itineraryDeferred = true;
       itineraryError = null;
@@ -368,13 +389,17 @@ class TripController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final proposal = proposeItinerary(trip, places);
+    final viewing = visibleDays(trip);
+    final pins = mergePins([viewing, if (!identical(viewing, trip.activeDays)) trip.activeDays, if (trip.proposalDays != null && !identical(viewing, trip.proposalDays)) trip.proposalDays!]);
+    final proposal = proposeItinerary(trip, places, pinnedFrom: pins);
     if (proposal == null) return;
     trip.proposalDays = proposal;
     reviewingProposal = true;
     itineraryDeferred = false;
     itineraryError = null;
     selectedItemId = null;
+    itineraryPushed = false;
+    selectedDate = planDate(trip);
     notifyListeners();
   }
 

@@ -135,6 +135,7 @@ class _ItineraryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
     final reviewing = controller.reviewingProposal;
+    final summary = trip.proposalDays == null ? null : summarizeProposal(trip.proposalDays!);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
@@ -181,6 +182,10 @@ class _ItineraryHeader extends StatelessWidget {
             const SizedBox(height: 6),
             Text(controller.itineraryError!, style: AppType.footnote.copyWith(color: AppColors.danger)),
           ],
+          if (controller.itineraryNotice != null && !reviewing) ...[
+            const SizedBox(height: 6),
+            Text(controller.itineraryNotice!, key: const Key('itinerary-notice'), style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
+          ],
           if (reviewing) ...[
             const SizedBox(height: AppSpace.xs),
             Container(
@@ -197,13 +202,23 @@ class _ItineraryHeader extends StatelessWidget {
                     trip.activeDays.isEmpty ? '적용하면 이 여행의 일정이 됩니다.' : '적용하면 지금 일정을 이 제안으로 바꿉니다.',
                     style: AppType.footnote.copyWith(color: AppColors.warningFg),
                   ),
+                  if (summary != null) ...[
+                    const SizedBox(height: 2),
+                    Text(summary.line, key: const Key('proposal-summary'), style: AppType.footnoteStrong.copyWith(color: AppColors.warningFg)),
+                    if (summary.visits == 0 && summary.pinned == 0)
+                      Text(
+                        '탐색에서 「일정에 선택」한 장소가 없어 식사 자리만 제안했습니다.',
+                        key: const Key('proposal-no-places'),
+                        style: AppType.footnote.copyWith(color: AppColors.warningFg),
+                      ),
+                  ],
                   const SizedBox(height: AppSpace.xs),
                   Row(
                     children: [
                       Expanded(child: AppButton(key: const Key('apply-proposal'), label: '이 일정 적용', onPressed: controller.applyProposal)),
                       const SizedBox(width: AppSpace.xs),
                       Expanded(
-                        child: AppButton(key: const Key('discard-proposal'), label: '제안 버리기', filled: false, destructive: true, onPressed: controller.discardProposal),
+                        child: AppButton(key: const Key('discard-proposal'), label: '제안 버리기', filled: false, destructive: true, onPressed: () => _confirmDiscard(context, controller)),
                       ),
                     ],
                   ),
@@ -215,6 +230,30 @@ class _ItineraryHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmDiscard(BuildContext context, TripController controller) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('이 제안을 버릴까요?', style: AppType.headline),
+        content: const Text('검토 중인 제안과 그 안에서 고친 내용이 사라집니다. 지금 일정은 바뀌지 않습니다.', style: AppType.body),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('취소')),
+          TextButton(
+            key: const Key('confirm-discard-proposal'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              controller.discardProposal();
+            },
+            child: const Text('버리기'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _DateChips extends StatelessWidget {
@@ -234,7 +273,7 @@ class _DateChips extends StatelessWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final day = days[index];
-          final selected = sameDay(day, controller.selectedDate);
+          final selected = sameDay(day, controller.planDate(trip));
           final today = sameDay(day, controller.now);
           return DateToken(
             label: '${day.month}.${day.day}',
@@ -263,7 +302,7 @@ class _DateColumn extends StatelessWidget {
       itemCount: days.length,
       itemBuilder: (context, index) {
         final day = days[index];
-        final selected = sameDay(day, controller.selectedDate);
+        final selected = sameDay(day, controller.planDate(trip));
         final today = sameDay(day, controller.now);
         return DateRailTile(
           label: formatMonthDay(day),
@@ -303,7 +342,10 @@ class _Timeline extends StatelessWidget {
                   icon: CupertinoIcons.calendar,
                 )
               else
-                const QuietEmpty(message: '이 날짜의 일정이 없습니다.'),
+                QuietEmpty(
+                  key: const Key('itinerary-day-empty'),
+                  message: controller.reviewingProposal ? '이 날짜에는 제안된 일정이 없습니다.' : '이 날짜에는 적용된 일정이 없습니다.',
+                ),
             ],
           );
         }
@@ -369,6 +411,12 @@ class ItemFacts extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          item.locked ? '고정한 항목은 새로 제안받아도 이 날짜, 이 시각에 그대로 남습니다.' : '고정하면 새로 제안받아도 이 항목이 같은 시각에 남습니다.',
+          key: const Key('item-lock-note'),
+          style: AppType.footnote,
         ),
         if (place != null) ...[
           const SizedBox(height: 16),

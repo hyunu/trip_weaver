@@ -53,8 +53,19 @@ class UnderwayScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(height: 248, child: map),
-          Expanded(child: steps),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mapHeight = (constraints.maxHeight * 0.45).clamp(0.0, 248.0);
+                return Column(
+                  children: [
+                    if (mapHeight >= 120) SizedBox(height: mapHeight, child: map),
+                    Expanded(child: steps),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       );
     }
@@ -89,8 +100,17 @@ class UnderwayScreen extends StatelessWidget {
       controller.selectTab(1);
       return;
     }
-    controller.openItem(pin.id, tablet: tablet);
-    controller.selectTab(2);
+    final item = _activeItem(controller, pin.id);
+    if (item != null) controller.openActiveItem(item, tablet: tablet);
+  }
+
+  PlanItem? _activeItem(TripController controller, String id) {
+    for (final day in controller.current?.activeDays ?? const <DayPlan>[]) {
+      for (final item in day.items) {
+        if (item.id == id) return item;
+      }
+    }
+    return null;
   }
 }
 
@@ -110,24 +130,31 @@ class _DestinationColumn extends StatelessWidget {
     final remaining = controller.remainingFor(trip);
     final nextPlace = next == null ? null : controller.placeById(next.placeId);
     final focus = nextPlace == null ? null : placeGeo(nextPlace);
+    final tablet = AdaptiveScope.of(context).tablet;
+    final progress = today == null ? null : visitProgress(today.items, controller.now);
+    void open(PlanItem item) => controller.openActiveItem(item, tablet: tablet);
     return ListView(
       key: const Key('underway-steps'),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)} · 샘플', style: AppType.footnote),
+        Text('기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)}${trip.dataOriginMock ? ' · 샘플' : ''}', style: AppType.footnote),
+        if (progress != null && progress.total > 0) ...[
+          const SizedBox(height: 4),
+          Text('오늘 방문 ${progress.total}곳 중 ${progress.done}곳 끝남', key: const Key('underway-progress'), style: AppType.footnoteStrong),
+        ],
         if (previous != null) ...[
           const SizedBox(height: 4),
-          Text('앞선 ${kindLabel(previous.kind)} ${previous.title}은 ${previous.end == null ? '끝났습니다' : '${formatHm(previous.end!)}에 끝났습니다'}.', style: AppType.footnote),
+          Text('앞선 일정: ${previous.title}${previous.end == null ? '' : ' · ${formatHm(previous.end!)} 종료'}', style: AppType.footnote),
         ],
         const SizedBox(height: 12),
         if (trip.activeDays.isEmpty)
-          const Text('적용된 일정이 없습니다.', style: AppType.body)
+          _NoPlan(trip: trip)
         else if (next == null)
-          const Text('오늘 남은 방문이 없습니다.', style: AppType.body)
+          _NothingNext(trip: trip, today: today, onOpen: open)
         else ...[
           const Text('다음 목적지', style: AppType.footnoteStrong),
           const SizedBox(height: 8),
-          ScheduleBlock(item: next, emphasize: true),
+          ScheduleBlock(key: const Key('underway-next'), item: next, emphasize: true, onTap: () => open(next)),
           const SizedBox(height: 8),
           const Text('대체 경로 없음', style: AppType.footnote),
         ],
@@ -138,16 +165,80 @@ class _DestinationColumn extends StatelessWidget {
         if (remaining.isNotEmpty) ...[
           const SectionLabel('오늘 남은 일정'),
           for (final item in remaining) ...[
-            ScheduleBlock(
-              item: item,
-              onTap: () {
-                controller.selectedDate = dateOnly(item.start ?? controller.now);
-                controller.selectedItemId = item.id;
-                controller.selectTab(2);
-              },
-            ),
+            ScheduleBlock(item: item, onTap: () => open(item)),
             const SizedBox(height: 8),
           ],
+        ],
+      ],
+    );
+  }
+}
+
+class _NoPlan extends StatelessWidget {
+  const _NoPlan({required this.trip});
+
+  final Trip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final pending = trip.proposalDays != null;
+    return Column(
+      key: const Key('underway-no-plan'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        QuietEmpty(
+          title: '적용된 일정이 없습니다.',
+          message: pending ? '검토할 제안이 있습니다. 적용하면 여기서 다음 목적지를 보여 줍니다.' : '일정 탭에서 일정을 만들어 적용하면 여기서 다음 목적지를 보여 줍니다.',
+          icon: CupertinoIcons.calendar,
+        ),
+        Center(
+          child: AppButton(
+            key: const Key('underway-open-itinerary'),
+            label: pending ? '제안 검토하기' : '일정 만들러 가기',
+            onPressed: () {
+              if (pending) controller.startReview();
+              controller.selectTab(2);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NothingNext extends StatelessWidget {
+  const _NothingNext({required this.trip, required this.today, required this.onOpen});
+
+  final Trip trip;
+  final DayPlan? today;
+  final void Function(PlanItem item) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    final now = dateOnly(controller.now);
+    final later = laterVisit(trip, controller.now);
+    final String message;
+    if (now.isBefore(dateOnly(trip.start))) {
+      message = '여행은 ${formatMonthDay(trip.start)}에 시작합니다.';
+    } else if (now.isAfter(dateOnly(trip.end))) {
+      message = '여행 기간이 끝났습니다.';
+    } else if (today == null) {
+      message = '오늘은 적용된 일정이 없습니다.';
+    } else {
+      message = '오늘 남은 방문이 없습니다.';
+    }
+    return Column(
+      key: const Key('underway-nothing-next'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(message, style: AppType.body),
+        if (later != null) ...[
+          const SizedBox(height: 12),
+          Text('${formatMonthDay(later.day.date)} 첫 방문', style: AppType.footnoteStrong),
+          const SizedBox(height: 8),
+          ScheduleBlock(key: const Key('underway-later'), item: later.item, onTap: () => onOpen(later.item)),
         ],
       ],
     );

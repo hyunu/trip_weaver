@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../format.dart';
@@ -37,7 +38,7 @@ class ScheduleBlock extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _KindChip(label: kindLabel(item.kind), foreground: tone.foreground, background: tone.chip),
-                  if (proposal) ...[
+                  if (proposal && !item.locked) ...[
                     const SizedBox(width: AppSpace.xs),
                     const _KindChip(label: '제안', foreground: AppColors.warningFg, background: AppColors.markerBg),
                   ],
@@ -53,8 +54,16 @@ class ScheduleBlock extends StatelessWidget {
                     const Spacer(),
                   if (item.locked)
                     Padding(
+                      key: Key('item-pinned-${item.id}'),
                       padding: const EdgeInsets.only(left: AppSpace.xs),
-                      child: Text('고정', style: AppType.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.w600)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(CupertinoIcons.pin_fill, size: 12, color: AppColors.accent),
+                          const SizedBox(width: 2),
+                          Text('고정', style: AppType.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -80,7 +89,7 @@ class ScheduleBlock extends StatelessWidget {
                 const SizedBox(height: AppSpace.xxs),
                 Text(item.note!, style: AppType.footnote),
               ],
-              if (item.dwellIsProposal) ...[
+              if (item.dwellIsProposal && !item.locked) ...[
                 const SizedBox(height: AppSpace.xxs),
                 const Text('체류 시간은 제안값입니다.', style: AppType.footnote),
               ],
