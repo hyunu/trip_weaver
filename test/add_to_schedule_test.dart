@@ -15,7 +15,7 @@ void main() {
       final controller = TripController();
       final trip = controller.current!;
       controller.discardProposal();
-      final day = DateTime(2026, 11, 9);
+      final day = DateTime(2026, 11, 7);
       final place = controller.placeById('gallery')!;
       expect(insertPlaceOnDay(trip, place, day, 'sched-test'), isNull);
       final plan = dayFor(trip.activeDays, day)!;
@@ -49,12 +49,14 @@ void main() {
     testWidgets('장소 상세에서 날짜를 고르면 일정 탭에 바로 보인다', (tester) async {
       TripController.debugFixedNow = DateTime(2026, 11, 8, 10, 40);
       await tester.runAsync(warmSampleMap);
+      _setView(tester, const Size(390, 844));
       final controller = TripController();
       await tester.pumpWidget(TripWeaveApp(controller: controller));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('tab-explore')));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.byKey(const Key('place-card-market')), 120, scrollable: find.byKey(const Key('explore-scroll')));
+      await tester.drag(find.byKey(const Key('explore-scroll')), const Offset(0, 500));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('place-card-market')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('place-add-schedule')));
@@ -70,6 +72,16 @@ void main() {
       expect(find.text('예원 골목'), findsOneWidget);
     });
   });
+}
+
+void _setView(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  final phone = size.shortestSide < 600;
+  final padding = FakeViewPadding(left: 0, top: phone ? 54 : 24, right: 0, bottom: phone ? 34 : 20);
+  tester.view.padding = padding;
+  tester.view.viewPadding = padding;
+  addTearDown(tester.view.reset);
 }
 
 void _expectNoOverlap(List<PlanItem> items) {
