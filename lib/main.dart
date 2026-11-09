@@ -143,9 +143,15 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
           ? const _BootSplash()
           : TripScope(
               controller: ready,
-              child: ready.showOnboarding
-                  ? const OnboardingScreen()
-                  : LiveClockScope(controller: ready, child: const AdaptiveShell()),
+              child: ListenableBuilder(
+                listenable: ready,
+                builder: (context, _) {
+                  if (ready.showOnboarding) {
+                    return const OnboardingScreen();
+                  }
+                  return LiveClockScope(controller: ready, child: const AdaptiveShell());
+                },
+              ),
             ),
     );
   }
