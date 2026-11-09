@@ -64,12 +64,22 @@ class NominatimGeocoder implements CityGeocoder {
         final lon = double.tryParse('${item['lon']}');
         if (lat == null || lon == null) continue;
         final label = _shortLabel('${item['display_name'] ?? trimmed}');
+        final address = item['address'];
+        String? countryCode;
+        String? cityName;
+        if (address is Map) {
+          final raw = address['country_code'];
+          if (raw != null && '$raw'.length == 2) countryCode = '$raw'.toUpperCase();
+          cityName = _pickCityName(address, '${item['name'] ?? ''}'.trim());
+        }
         results.add(
           GeoCandidate(
             id: 'osm-$id',
             label: label,
             coordinateLabel: _coordLabel(lat, lon),
             sourceName: 'OpenStreetMap Nominatim',
+            cityName: cityName?.isEmpty == true ? null : cityName,
+            countryCode: countryCode,
           ),
         );
       }
@@ -83,6 +93,14 @@ class NominatimGeocoder implements CityGeocoder {
     final parts = full.split(',').map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
     if (parts.length <= 3) return full;
     return parts.take(3).join(', ');
+  }
+
+  String _pickCityName(Map address, String fallback) {
+    for (final key in const ['city', 'town', 'village', 'municipality', 'county', 'state_district']) {
+      final value = address[key];
+      if (value != null && '$value'.trim().isNotEmpty) return '$value'.trim();
+    }
+    return fallback;
   }
 }
 

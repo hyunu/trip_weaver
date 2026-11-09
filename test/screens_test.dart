@@ -148,21 +148,29 @@ void main() {
     await tester.tap(find.byKey(const Key('create-trip')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('form-city-name-0')), findsOneWidget);
-    expect(find.byKey(const Key('form-remove-city-0')), findsNothing);
-    expect(find.text('두 글자 코드'), findsNothing);
+    expect(find.byKey(const Key('form-city-search')), findsOneWidget);
+    expect(find.byKey(const Key('form-step-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('form-city-name-0')), findsNothing);
+    expect(find.byKey(const Key('form-country')), findsNothing);
 
-    await _scrollTo(tester, find.byKey(const Key('form-save')), find.byKey(const Key('trip-form-scroll')));
-    await tester.tap(find.byKey(const Key('form-save')));
+    await tester.tap(find.byKey(const Key('form-step-next')));
     await tester.pumpAndSettle();
     expect(controller.trips.length, before);
     expect(find.byKey(const Key('form-error-summary')), findsOneWidget);
-    expect(find.text('제목을 입력하세요.'), findsOneWidget);
-    expect(tester.getTopLeft(find.text('제목을 입력하세요.')).dy, lessThan(500));
+    expect(find.text('도시를 검색하거나 입력하세요.'), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('form-title')), '가을 상하이');
+    await tester.enterText(find.byKey(const Key('form-city-search')), '상하이');
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
-    expect(find.text('제목을 입력하세요.'), findsNothing);
+    expect(find.byKey(const Key('form-city-candidate-0')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('form-city-candidate-0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('form-derived-country')), findsOneWidget);
+    expect(find.textContaining('중국'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('form-step-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('form-start')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('form-start')));
     await tester.pumpAndSettle();
@@ -177,43 +185,30 @@ void main() {
     expect(find.text('2026.11.15 (일)'), findsWidgets);
     expect(find.text('2026.11.18 (수)'), findsWidgets);
 
-    await _scrollTo(tester, find.byKey(const Key('form-add-city')), find.byKey(const Key('trip-form-scroll')));
-    await tester.tap(find.byKey(const Key('form-add-city')));
+    await tester.tap(find.byKey(const Key('form-step-next')));
     await tester.pumpAndSettle();
-    await _scrollTo(tester, find.byKey(const Key('form-remove-city-1')), find.byKey(const Key('trip-form-scroll')));
-    await tester.tap(find.byKey(const Key('form-remove-city-1')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('form-city-name-1')), findsNothing);
+    expect(find.byKey(const Key('form-title')), findsOneWidget);
+    expect(find.byKey(const Key('form-create-summary')), findsOneWidget);
+    expect(find.textContaining('상하이'), findsWidgets);
 
-    await _scrollTo(tester, find.byKey(const Key('form-city-name-0')), find.byKey(const Key('trip-form-scroll')));
-    await tester.enterText(find.byKey(const Key('form-city-name-0')), '상하이');
-    await _scrollTo(tester, find.byKey(const Key('form-budget')), find.byKey(const Key('trip-form-scroll')));
-    await tester.enterText(find.byKey(const Key('form-budget')), '12a00');
-    expect(find.text('1200'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('form-budget')), '');
-    await tester.enterText(find.byKey(const Key('form-tag')), '야경');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('form-tag')), '야경');
-    await tester.tap(find.byKey(const Key('form-add-tag')));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(InputChip, '야경'), findsOneWidget);
-    await _scrollTo(tester, find.byKey(const Key('form-companion-plus')), find.byKey(const Key('trip-form-scroll')));
-    await tester.tap(find.byKey(const Key('form-companion-plus')));
-    await tester.pumpAndSettle();
-    expect(find.text('본인 제외 · 총 2명'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('form-title')));
+    await tester.pump();
+    final titleField = tester.widget<TextField>(find.byKey(const Key('form-title')));
+    titleField.controller!.value = const TextEditingValue(text: '가을 상하이');
+    await tester.pump();
 
-    await _scrollTo(tester, find.byKey(const Key('form-save')), find.byKey(const Key('trip-form-scroll')));
     await tester.tap(find.byKey(const Key('form-save')));
     await tester.pumpAndSettle();
     expect(controller.trips.length, before + 1);
     final made = controller.current!;
     expect(made.title, '가을 상하이');
+    expect(made.countryCode, 'CN');
     expect(made.cities.single.name, '상하이');
+    expect(made.cities.single.countryCode, 'CN');
     expect(made.cities.single.start, DateTime(2026, 11, 15));
     expect(made.cities.single.end, DateTime(2026, 11, 18));
-    expect(made.companionCount, 1);
-    expect(made.tasteTags, ['야경']);
+    expect(made.companionCount, 0);
+    expect(made.tasteTags, isEmpty);
     expect(controller.creating, isFalse);
     expect(find.text('일정 만들러 가기'), findsOneWidget);
 
@@ -237,14 +232,14 @@ void main() {
 
     await tester.tap(find.byKey(const Key('create-trip')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('form-title')), '임시');
+    await tester.enterText(find.byKey(const Key('form-city-search')), '임시');
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(find.text('작성 중인 여행을 버릴까요?'), findsOneWidget);
     await tester.tap(find.text('계속 작성'));
     await tester.pumpAndSettle();
     expect(controller.creating, isTrue);
-    expect(find.text('임시'), findsOneWidget);
+    expect(find.text('임시'), findsWidgets);
 
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();

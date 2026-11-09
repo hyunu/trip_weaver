@@ -161,6 +161,25 @@ void main() {
     expect(trip.companionCount, 2);
     expect(trip.activeDays.length, days);
   });
+
+  test('상하이는 중국으로 추정한다', () {
+    expect(inferCountryCodeForCity('상하이'), 'CN');
+    expect(inferCountryCodeForCity('Shanghai'), 'CN');
+    expect(inferCountryCodeForCity('부산'), 'KR');
+  });
+
+  test('제목 제안은 도시와 기간을 합친다', () {
+    final draft = TripDraft(
+      countryCode: 'CN',
+      start: DateTime(2026, 11, 15),
+      end: DateTime(2026, 11, 18),
+      cities: [CityDraft(name: '상하이', countryCode: 'CN')],
+    );
+    expect(suggestTripTitle(draft), '상하이 2026.11.15 – 11.18');
+    prepareTripDraftForCreate(draft);
+    expect(draft.title, '상하이 2026.11.15 – 11.18');
+    expect(draft.cities.single.start, draft.start);
+  });
 }
 
 List<String> _stayTitles(TripController controller) {

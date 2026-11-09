@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,16 +24,24 @@ class TripFormScreen extends StatefulWidget {
   State<TripFormScreen> createState() => _TripFormScreenState();
 }
 
+enum _CreateStep { city, dates, finish }
+
 class _TripFormScreenState extends State<TripFormScreen> {
-  late final TripDraft draft = widget.trip == null ? TripDraft(cities: [CityDraft()]) : TripDraft.fromTrip(widget.trip!);
+  late final TripDraft draft = widget.trip == null ? TripDraft(countryCode: '', cities: [CityDraft(countryCode: '')]) : TripDraft.fromTrip(widget.trip!);
   final titleController = TextEditingController();
   final purposeController = TextEditingController();
   final budgetController = TextEditingController();
   final tagController = TextEditingController();
+  final citySearchController = TextEditingController();
   final Map<String, GlobalKey> _anchors = {};
   final Map<CityDraft, GlobalKey> _cityAnchors = {};
   Map<String, String> errors = {};
   bool _dirty = false;
+  _CreateStep _createStep = _CreateStep.city;
+  List<GeoCandidate> _cityCandidates = const [];
+  bool _citySearching = false;
+  bool _titleEdited = false;
+  Timer? _citySearchDebounce;
 
   static const _maxWidth = 600.0;
 
@@ -47,10 +57,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
 
   @override
   void dispose() {
+    _citySearchDebounce?.cancel();
     titleController.dispose();
     purposeController.dispose();
     budgetController.dispose();
     tagController.dispose();
+    citySearchController.dispose();
     super.dispose();
   }
 
@@ -77,14 +89,355 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final names = countryNames.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
     final total = draft.companionCount + 1;
-    if (widget.onClose == null) return _form(names, total);
+    final body = _editing ? _form(names, total) : _createWizard(names);
+    if (widget.onClose == null) return body;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _close();
       },
-      child: _form(names, total),
+      child: body,
     );
+  }
+
+  Widget _createWizard(List<MapEntry<String, String>> names) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = ((constraints.maxWidth - _maxWidth) / 2).clamp(
+          AppSpace.page,
+          double.infinity,
+        );
+        return SingleChildScrollView(
+          key: const Key('trip-form-scroll'),
+          padding: EdgeInsets.fromLTRB(side, AppSpace.xs, side, AppSpace.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.onClose != null)
+                BackRow(label: '취소', onPressed: _createBack),
+              const Text('여행 만들기', key: Key('form-heading'), style: AppType.title),
+              const SizedBox(height: AppSpace.xxs),
+              const Text(
+                '도시만 고르면 국가와 제목을 채워 드립니다. 목적·예산·동행은 만든 뒤 편집에서 넣을 수 있어요.',
+                style: AppType.footnote,
+              ),
+              const SizedBox(height: AppSpace.sm),
+              _createStepHeader(),
+              const SizedBox(height: AppSpace.sm),
+              switch (_createStep) {
+                _CreateStep.city => _createStepCity(),
+                _CreateStep.dates => _createStepDates(),
+                _CreateStep.finish => _createStepFinish(),
+              },
+              if (errors.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  errors.length == 1 ? errors.values.first : '입력을 확인하세요.',
+                  key: const Key('form-error-summary'),
+                  style: AppType.footnoteStrong.copyWith(color: AppColors.danger),
+                ),
+              ],
+              const SizedBox(height: AppSpace.lg),
+              if (_createStep != _CreateStep.finish)
+                AppButton(
+                  key: const Key('form-step-next'),
+                  label: '다음',
+                  onPressed: _advanceCreateStep,
+                )
+              else
+                AppButton(
+                  key: const Key('form-save'),
+                  label: '여행 만들기',
+                  onPressed: _save,
+                ),
+              if (_createStep != _CreateStep.city) ...[
+                const SizedBox(height: AppSpace.xs),
+                AppButton(
+                  key: const Key('form-step-back'),
+                  label: '이전',
+                  filled: false,
+                  onPressed: _createBack,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _createStepHeader() {
+    const labels = ['어디로', '언제', '마무리'];
+    return Row(
+      key: const Key('form-step-indicator'),
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          if (index > 0) const SizedBox(width: AppSpace.xs),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: AppSpace.xxs),
+              decoration: BoxDecoration(
+                color: index <= _createStep.index ? AppColors.accentSoft : AppColors.canvas,
+                borderRadius: BorderRadius.circular(AppRadii.chip),
+              ),
+              child: Text(
+                '${index + 1}. ${labels[index]}',
+                textAlign: TextAlign.center,
+                style: AppType.footnoteStrong.copyWith(
+                  color: index <= _createStep.index ? AppColors.accent : AppColors.secondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _createStepCity() {
+    final city = draft.cities.first;
+    final country = city.countryCode.trim().toUpperCase();
+    final countryLabel = countryNames[country];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('도시 검색'),
+        TextField(
+          key: const Key('form-city-search'),
+          controller: citySearchController,
+          style: AppType.body,
+          textInputAction: TextInputAction.search,
+          decoration: AppFields.decoration('도시 이름 (예: 상하이, 부산)'),
+          onChanged: _queueCitySearch,
+          onSubmitted: (_) => _searchCreateCities(citySearchController.text),
+        ),
+        if (errors['city'] != null) _error(errors['city']!),
+        if (_citySearching) ...[
+          const SizedBox(height: AppSpace.sm),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+        if (_cityCandidates.isNotEmpty) ...[
+          const SizedBox(height: AppSpace.sm),
+          for (var index = 0; index < _cityCandidates.length; index++)
+            _CreateCityCandidateTile(
+              key: Key('form-city-candidate-$index'),
+              candidate: _cityCandidates[index],
+              onPick: () => _pickCreateCity(_cityCandidates[index]),
+            ),
+        ],
+        if (countryLabel != null) ...[
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            '대표 국가 · $countryLabel ($country)',
+            key: const Key('form-derived-country'),
+            style: AppType.footnote,
+          ),
+        ],
+        if (city.name.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpace.xxs),
+          Text('선택 도시 · ${city.name}', style: AppType.footnoteStrong),
+        ],
+      ],
+    );
+  }
+
+  Widget _createStepDates() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('여행 기간'),
+        const Text('도시 일정은 이 기간과 같게 맞춥니다.', style: AppType.footnote),
+        const SizedBox(height: AppSpace.sm),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _dateField(
+                '시작일',
+                draft.start,
+                key: _anchor('start'),
+                fieldKey: const Key('form-start'),
+                error: errors['start'],
+                initial: () => draft.end,
+                onPick: (date) => _edit(() {
+                  draft.start = date;
+                  _fillCityDates();
+                }, clears: ['start', 'end']),
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            Expanded(
+              child: _dateField(
+                '종료일',
+                draft.end,
+                key: _anchor('end'),
+                fieldKey: const Key('form-end'),
+                error: errors['end'],
+                initial: () => draft.start,
+                onPick: (date) => _edit(() {
+                  draft.end = date;
+                  _fillCityDates();
+                }, clears: ['end']),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _createStepFinish() {
+    final city = draft.cities.first;
+    final country = draft.countryCode.trim().toUpperCase();
+  final countryLabel = countryNames[country] ?? country;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('확인'),
+        _labeled(
+          '제목',
+          key: _anchor('title'),
+          error: errors['title'],
+          child: TextField(
+            key: const Key('form-title'),
+            controller: titleController,
+            style: AppType.body,
+            textInputAction: TextInputAction.done,
+            decoration: AppFields.decoration('자동으로 채웠습니다. 바꿔도 됩니다.'),
+            onChanged: (value) {
+              _titleEdited = true;
+              _edit(() => draft.title = value, clears: ['title']);
+            },
+          ),
+        ),
+        const SizedBox(height: AppSpace.sm),
+        Container(
+          key: const Key('form-create-summary'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpace.sm),
+          decoration: AppDecor.card(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(city.name.trim().isEmpty ? '도시' : city.name, style: AppType.headline),
+              const SizedBox(height: AppSpace.xxs),
+              Text('$countryLabel · ${draft.start == null || draft.end == null ? '기간 미정' : formatRange(draft.start!, draft.end!)}', style: AppType.body),
+              const SizedBox(height: AppSpace.xs),
+              const Text('목적, 예산, 취향, 동행은 여행 상세의 편집에서 넣을 수 있어요.', style: AppType.footnote),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _createBack() {
+    if (_createStep == _CreateStep.city) {
+      _close();
+      return;
+    }
+    setState(() {
+      errors = {};
+      _createStep = _CreateStep.values[_createStep.index - 1];
+    });
+  }
+
+  void _queueCitySearch(String query) {
+    _citySearchDebounce?.cancel();
+    _citySearchDebounce = Timer(const Duration(milliseconds: 350), () => _searchCreateCities(query));
+  }
+
+  Future<void> _searchCreateCities(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setState(() => _cityCandidates = const []);
+      return;
+    }
+    setState(() => _citySearching = true);
+    final results = await TripScope.of(context).geocoder.search(trimmed);
+    if (!mounted) return;
+    setState(() {
+      _citySearching = false;
+      _cityCandidates = results;
+    });
+  }
+
+  void _pickCreateCity(GeoCandidate candidate) {
+    final city = draft.cities.first;
+    _edit(() {
+      city.name = cityLabelFromCandidate(candidate, citySearchController.text);
+      final code = (candidate.countryCode ?? inferCountryCodeForCity(city.name) ?? '').trim().toUpperCase();
+      city.countryCode = code;
+      if (code.isNotEmpty) draft.countryCode = code;
+      citySearchController.text = city.name;
+    }, clears: ['city']);
+    setState(() => _cityCandidates = const []);
+  }
+
+  void _applyCityQuery() {
+    final query = citySearchController.text.trim();
+    if (query.isEmpty) return;
+    final city = draft.cities.first;
+    _edit(() {
+      if (city.name.trim().isEmpty) city.name = query;
+      if (city.countryCode.trim().isEmpty) {
+        final inferred = inferCountryCodeForCity(city.name);
+        if (inferred != null) {
+          city.countryCode = inferred;
+          draft.countryCode = inferred;
+        }
+      }
+    });
+  }
+
+  Map<String, String> _validateCreateStep() {
+    if (_createStep == _CreateStep.city) {
+      _applyCityQuery();
+      final city = draft.cities.first;
+      final errors = <String, String>{};
+      if (city.name.trim().isEmpty) errors['city'] = '도시를 검색하거나 입력하세요.';
+      final code = city.countryCode.trim().toUpperCase();
+      if (!countryNames.containsKey(code)) errors['city'] = '목록에서 도시를 고르거나, 알려진 도시 이름을 입력하세요.';
+      return errors;
+    }
+    if (_createStep == _CreateStep.dates) {
+      final dateErrors = <String, String>{};
+      if (draft.start == null) dateErrors['start'] = '시작일을 고르세요.';
+      if (draft.end == null) dateErrors['end'] = '종료일을 고르세요.';
+      if (draft.start != null &&
+          draft.end != null &&
+          dateOnly(draft.end!).isBefore(dateOnly(draft.start!))) {
+        dateErrors['end'] = '종료일은 시작일 이상이어야 합니다.';
+      }
+      return dateErrors;
+    }
+    return const {};
+  }
+
+  void _advanceCreateStep() {
+    final stepErrors = _validateCreateStep();
+    setState(() => errors = stepErrors);
+    if (stepErrors.isNotEmpty) return;
+    if (_createStep == _CreateStep.city) {
+      setState(() {
+        errors = {};
+        _createStep = _CreateStep.dates;
+      });
+      return;
+    }
+    if (_createStep == _CreateStep.dates) {
+      _fillCityDates();
+      prepareTripDraftForCreate(draft);
+      if (!_titleEdited) {
+        final suggested = suggestTripTitle(draft);
+        titleController.text = suggested;
+        draft.title = suggested;
+      }
+      setState(() {
+        errors = {};
+        _createStep = _CreateStep.finish;
+      });
+    }
   }
 
   Widget _form(List<MapEntry<String, String>> names, int total) {
@@ -440,6 +793,8 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final controller = TripScope.of(context);
     final trip = widget.trip;
     if (trip == null) {
+      prepareTripDraftForCreate(draft);
+      draft.title = titleController.text;
       controller.createTrip(draft);
       return;
     }
@@ -698,4 +1053,45 @@ class _TripFormScreenState extends State<TripFormScreen> {
       style: AppType.footnote.copyWith(color: AppColors.danger),
     ),
   );
+}
+
+class _CreateCityCandidateTile extends StatelessWidget {
+  const _CreateCityCandidateTile({super.key, required this.candidate, required this.onPick});
+
+  final GeoCandidate candidate;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final code = candidate.countryCode?.trim().toUpperCase();
+    final country = code == null ? null : countryNames[code];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.xs),
+      child: Material(
+        color: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control), side: const BorderSide(color: AppColors.line)),
+        child: InkWell(
+          onTap: onPick,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.sm),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(candidate.label, style: AppType.body),
+                      if (country != null) Text('$country · $code', style: AppType.footnote),
+                    ],
+                  ),
+                ),
+                const Icon(CupertinoIcons.chevron_right, size: 16, color: AppColors.secondary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

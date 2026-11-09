@@ -1,4 +1,5 @@
 import '../data/countries.dart';
+import '../format.dart';
 import '../model/models.dart';
 
 class CityDraft {
@@ -62,6 +63,79 @@ class TripDraft {
 const maxTitleLength = 60;
 const maxCityNameLength = 40;
 const maxTripDays = 366;
+
+/// Known cities for offline/mock lookup when geocoder omits country.
+String? inferCountryCodeForCity(String name) {
+  final key = name.trim().toLowerCase().replaceAll(' ', '');
+  if (key.isEmpty) return null;
+  const hints = <String, String>{
+    '상하이': 'CN',
+    'shanghai': 'CN',
+    '上海': 'CN',
+    '충밍': 'CN',
+    'chongming': 'CN',
+    '崇明': 'CN',
+    '서울': 'KR',
+    'seoul': 'KR',
+    '부산': 'KR',
+    'busan': 'KR',
+    '제주': 'KR',
+    'jeju': 'KR',
+    '오사카': 'JP',
+    'osaka': 'JP',
+    '도쿄': 'JP',
+    'tokyo': 'JP',
+    '巴黎': 'FR',
+    'paris': 'FR',
+    '런던': 'GB',
+    'london': 'GB',
+    '뉴욕': 'US',
+    'newyork': 'US',
+  };
+  for (final entry in hints.entries) {
+    if (key.contains(entry.key)) return entry.value;
+  }
+  return null;
+}
+
+String cityLabelFromCandidate(GeoCandidate candidate, String fallbackQuery) {
+  final fromCandidate = candidate.cityName?.trim();
+  if (fromCandidate != null && fromCandidate.isNotEmpty) return fromCandidate;
+  final first = candidate.label.split(',').first.trim();
+  if (first.isNotEmpty) return first;
+  return fallbackQuery.trim();
+}
+
+/// Auto title from primary city and trip dates.
+String suggestTripTitle(TripDraft draft) {
+  if (draft.cities.isEmpty) return '';
+  final city = draft.cities.first.name.trim();
+  if (city.isEmpty) return '';
+  if (draft.start != null && draft.end != null) {
+    return '$city ${formatRange(draft.start!, draft.end!)}';
+  }
+  return '$city 여행';
+}
+
+/// Fills trip country, per-city dates, and empty title before create save.
+void prepareTripDraftForCreate(TripDraft draft) {
+  if (draft.cities.isEmpty) return;
+  for (final city in draft.cities) {
+    if (city.countryCode.trim().isEmpty) {
+      final inferred = inferCountryCodeForCity(city.name);
+      if (inferred != null) city.countryCode = inferred;
+    }
+  }
+  final primary = draft.cities.first.countryCode.trim().toUpperCase();
+  if (countryNames.containsKey(primary)) draft.countryCode = primary;
+  if (draft.start != null && draft.end != null) {
+    for (final city in draft.cities) {
+      city.start = draft.start;
+      city.end = draft.end;
+    }
+  }
+  if (draft.title.trim().isEmpty) draft.title = suggestTripTitle(draft);
+}
 
 Map<String, String> validateTripDraft(TripDraft draft) {
   final errors = <String, String>{};
