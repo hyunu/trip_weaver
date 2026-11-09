@@ -55,16 +55,18 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('tab-explore')));
       await tester.pumpAndSettle();
-      await tester.drag(find.byKey(const Key('explore-scroll')), const Offset(0, 500));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('place-card-market')));
-      await tester.pumpAndSettle();
+      await _tapCard(tester, find.byKey(const Key('place-card-market')));
+      expect(find.byKey(const Key('place-combined')), findsOneWidget);
       await tester.tap(find.byKey(const Key('place-add-schedule')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('schedule-date-sheet')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('schedule-pick-11-9')));
+      final pick = find.byKey(const Key('schedule-pick-11-9'));
+      await tester.dragUntilVisible(pick, find.byKey(const Key('schedule-date-sheet')), const Offset(0, -80));
       await tester.pumpAndSettle();
-      expect(find.textContaining('일정 11.9'), findsWidgets);
+      await tester.tap(pick);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('schedule-date-sheet')), findsNothing);
+      expect(controller.scheduledDaysFor('market'), contains(dateOnly(DateTime(2026, 11, 9))));
       await tester.tap(find.byKey(const Key('tab-itinerary')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('date-chip-11-9')));
@@ -72,6 +74,31 @@ void main() {
       expect(find.text('예원 골목'), findsOneWidget);
     });
   });
+}
+
+Future<void> _tapCard(WidgetTester tester, Finder finder) async {
+  await _reveal(tester, finder, find.byKey(const Key('explore-scroll')));
+  final top = tester.getTopLeft(finder);
+  await tester.tapAt(top + const Offset(24, 16));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _reveal(WidgetTester tester, Finder target, Finder list) async {
+  final scrollables = find.descendant(of: list, matching: find.byType(Scrollable));
+  for (var attempt = 0; attempt < 12; attempt++) {
+    if (tester.any(target)) {
+      final top = tester.getTopLeft(target);
+      final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      if (top.dy >= 8 && top.dy < height - 80) return;
+    }
+    final states = tester.stateList<ScrollableState>(scrollables);
+    if (states.isEmpty) return;
+    final position = states.first.position;
+    final next = position.pixels + 240;
+    if (next > position.maxScrollExtent && tester.any(target)) return;
+    position.jumpTo(next.clamp(0, position.maxScrollExtent));
+    await tester.pumpAndSettle();
+  }
 }
 
 void _setView(WidgetTester tester, Size size) {

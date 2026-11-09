@@ -219,6 +219,7 @@ class _ScheduleDateSheet extends StatelessWidget {
   static Future<void> open(BuildContext context, {required Place place}) {
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => _ScheduleDateSheet(place: place),
     );
@@ -230,24 +231,25 @@ class _ScheduleDateSheet extends StatelessWidget {
     final trip = controller.current!;
     final days = tripDays(trip);
     final scheduled = controller.scheduledDaysFor(place.id).toSet();
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.55;
     return SafeArea(
-      child: Padding(
+      child: SizedBox(
         key: const Key('schedule-date-sheet'),
-        padding: const EdgeInsets.fromLTRB(AppSpace.page, 0, AppSpace.page, AppSpace.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('${place.name} · 날짜 고르기', style: AppType.headline),
-            const SizedBox(height: AppSpace.xs),
-            const Text('고른 날짜의 적용된 일정에 바로 넣습니다. 새로 제안받으면 빈 시간을 채웁니다.', style: AppType.footnote),
-            const SizedBox(height: AppSpace.sm),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final day in days)
-                    ListTile(
+        height: sheetHeight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpace.page, 0, AppSpace.page, AppSpace.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('${place.name} · 날짜 고르기', style: AppType.headline),
+              const SizedBox(height: AppSpace.xs),
+              const Text('고른 날짜의 적용된 일정에 바로 넣습니다. 새로 제안받으면 빈 시간을 채웁니다.', style: AppType.footnote),
+              const SizedBox(height: AppSpace.sm),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final day in days)
+                      ListTile(
                       key: Key('schedule-pick-${day.month}-${day.day}'),
                       enabled: !scheduled.contains(dateOnly(day)),
                       title: Text('${formatDot(day)} (${weekdayKo(day)})', style: AppType.body),
@@ -265,11 +267,12 @@ class _ScheduleDateSheet extends StatelessWidget {
                               }
                               Navigator.pop(context);
                             },
-                    ),
-                ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
