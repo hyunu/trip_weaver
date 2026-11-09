@@ -383,6 +383,29 @@ class FactBadge extends StatelessWidget {
   }
 }
 
+/// 현지 간판·택시용 한자/현지어 표기. 위 [Place.name]이 한국어로 읽는 이름입니다.
+class PlaceLocalCaption extends StatelessWidget {
+  const PlaceLocalCaption({super.key, required this.place});
+
+  final Place place;
+
+  @override
+  Widget build(BuildContext context) {
+    final local = place.localName?.trim();
+    if (local == null || local.isEmpty) {
+      return Text('현지 간판 표기 없음', style: AppType.footnote.copyWith(color: AppColors.tertiary));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('현지 간판·택시용', style: AppType.footnoteStrong.copyWith(color: AppColors.secondary)),
+        const SizedBox(height: 2),
+        Text(local, style: AppType.footnote),
+      ],
+    );
+  }
+}
+
 class BackRow extends StatelessWidget {
   const BackRow({super.key, required this.onPressed, this.label = '뒤로'});
 

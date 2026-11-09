@@ -261,8 +261,8 @@ class _PlaceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(place.name, style: AppType.headline),
-                const SizedBox(height: 2),
-                Text(place.localName ?? '현지어 이름 미확인', style: AppType.footnote),
+                const SizedBox(height: 4),
+                PlaceLocalCaption(place: place),
                 const SizedBox(height: 8),
                 Text(addressLine(place), style: AppType.footnote),
                 if (placeSuggestion(place.id) != null) ...[

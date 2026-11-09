@@ -49,6 +49,7 @@ class NominatimGeocoder implements CityGeocoder {
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.userAgentHeader, OsmTileStore.userAgent);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set(HttpHeaders.acceptLanguageHeader, 'ko-KR,ko;q=0.9,en;q=0.8');
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode != 200) {

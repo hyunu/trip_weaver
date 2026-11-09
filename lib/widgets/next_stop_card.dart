@@ -7,6 +7,7 @@ import '../map/geo.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
 import '../theme/app_theme.dart';
+import 'chrome.dart';
 import 'schedule_block.dart';
 
 class NextStopCard extends StatelessWidget {
@@ -28,10 +29,9 @@ class NextStopCard extends StatelessWidget {
         ScheduleBlock(key: const Key('underway-next'), item: item, emphasize: true, onTap: onOpenDetail),
         if (place != null) ...[
           const SizedBox(height: AppSpace.xs),
-          Text(
-            local == null || local.isEmpty ? '현지어 이름 미확인' : local,
+          PlaceLocalCaption(
             key: const Key('underway-next-local'),
-            style: AppType.footnote,
+            place: place!,
           ),
         ],
         const SizedBox(height: AppSpace.sm),

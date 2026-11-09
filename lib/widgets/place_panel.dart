@@ -44,8 +44,8 @@ class PlacePanel extends StatelessWidget {
         ],
         if (showFacts) ...[
           Text(place.name, key: const Key('place-name'), style: AppType.title),
-          const SizedBox(height: AppSpace.xxs),
-          Text(place.localName ?? '현지어 이름 미확인', style: AppType.footnote),
+          const SizedBox(height: AppSpace.xs),
+          PlaceLocalCaption(place: place),
           const SizedBox(height: AppSpace.xxs),
           Text(categoryLabel(place.category), style: AppType.section.copyWith(color: AppColors.ink)),
           _SampleLimit(place: place, offline: controller.offline),
