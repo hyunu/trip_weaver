@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/sample_catalog.dart';
 import '../format.dart';
 import '../map/place_pins.dart';
 import '../map/trip_map.dart';
@@ -30,7 +31,16 @@ class ExploreScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageHeader(title: '탐색', titleKey: const Key('screen-title-explore'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
-              StatusBanners(sample: trip.dataOriginMock, offline: controller.offline),
+              _CatalogState(sample: trip.dataOriginMock, offline: controller.offline),
+              if (!blocked) ...[
+                const SizedBox(height: 8),
+                AppButton(key: const Key('search-city'), label: '이 도시에서 찾기', onPressed: () => controller.setQuery(controller.searchQuery)),
+                const SizedBox(height: 6),
+                Text(
+                  trip.dataOriginMock ? '순서는 샘플에 넣은 순서입니다. 후기 점수로 줄을 세우지 않습니다.' : '후기 자료가 연결되지 않아 추천 순서가 없습니다.',
+                  style: AppType.footnote,
+                ),
+              ],
             ],
           ),
         ),
@@ -97,10 +107,7 @@ class ExploreScreen extends StatelessWidget {
               const SizedBox(height: 8),
               AppButton(label: '도시 편집으로 이동', filled: false, onPressed: controller.openCityEdit),
             ] else ...[
-              AppButton(key: const Key('search-city'), label: '이 도시에서 찾기', onPressed: () => controller.setQuery(controller.searchQuery)),
-              const SizedBox(height: 12),
-              const Text('후기 자료가 연결되지 않아 추천 순서가 없습니다.', style: AppType.footnote),
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
               if (results.isEmpty)
                 const QuietEmpty(message: '이 조건의 장소가 없습니다.')
               else
@@ -160,12 +167,70 @@ class _PlaceCard extends StatelessWidget {
                 Text(place.localName ?? '현지어 이름 미확인', style: AppType.footnote),
                 const SizedBox(height: 8),
                 Text(addressLine(place), style: AppType.footnote),
+                if (placeSuggestion(place.id) != null) ...[
+                  const SizedBox(height: 8),
+                  Text(placeSuggestion(place.id)!, style: AppType.body),
+                ],
                 const SizedBox(height: 4),
                 Text(decisionLabel(link.decision, saved: link.saved), style: AppType.footnoteStrong),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CatalogState extends StatelessWidget {
+  const _CatalogState({required this.sample, required this.offline});
+
+  final bool sample;
+  final bool offline;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!sample && !offline) return const SizedBox.shrink();
+    final controller = TripScope.of(context);
+    final filtered = controller.searchQuery.trim().isNotEmpty || controller.categoryFilter != null;
+    final String title;
+    final String body;
+    if (offline && sample) {
+      title = '오프라인 · 저장된 샘플만';
+      body = '새 장소는 받지 않습니다. 찾기와 분류는 외탄, 루자쭈이, 예원, 덕흥관, 십육포만 거릅니다.';
+    } else if (offline) {
+      title = '오프라인 · 저장된 장소만';
+      body = '새 장소는 받지 않습니다. 찾기와 분류는 이 기기에 있는 목록만 거릅니다.';
+    } else {
+      title = '이 기기의 샘플 장소';
+      body = '검색 결과가 아닙니다. 추천 문장은 이유이고, 영업시간 배지는 오늘 영업을 보증하지 않습니다.';
+    }
+    return Container(
+      key: const Key('explore-catalog-state'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      decoration: BoxDecoration(color: const Color(0xFFE8EEF4), borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppType.footnoteStrong),
+          const SizedBox(height: 2),
+          Text(body, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: const Key('explore-clear-filter'),
+              onPressed: () {
+                controller.setQuery('');
+                final category = controller.categoryFilter;
+                if (category != null) controller.setCategory(category);
+              },
+              style: TextButton.styleFrom(minimumSize: const Size(44, 36), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              child: Text(filtered ? '필터 지우고 샘플 전체 보기' : '샘플 전체 목록 유지', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
+            ),
+          ),
+        ],
       ),
     );
   }
