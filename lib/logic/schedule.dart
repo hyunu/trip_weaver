@@ -177,3 +177,78 @@ ProposalSummary summarizeProposal(List<DayPlan> days) {
   final items = day.items.where((item) => item.kind != ItemKind.move).toList();
   return (items: items.length, pinned: items.where((item) => item.locked).length);
 }
+
+City? cityOnDate(Trip trip, DateTime day) {
+  for (final city in trip.cities) {
+    if (containsDay(city.start, city.end, day)) return city;
+  }
+  return trip.cities.isNotEmpty ? trip.cities.first : null;
+}
+
+DayPlan dayForOrInsert(List<DayPlan> days, DateTime date) {
+  final found = dayFor(days, date);
+  if (found != null) return found;
+  final plan = DayPlan(date: dateOnly(date), items: <PlanItem>[]);
+  days.add(plan);
+  days.sort((a, b) => a.date.compareTo(b.date));
+  return plan;
+}
+
+Duration defaultDuration(ItemKind kind) {
+  switch (kind) {
+    case ItemKind.move:
+      return const Duration(minutes: 30);
+    case ItemKind.meal:
+      return const Duration(hours: 1, minutes: 30);
+    case ItemKind.stay:
+      return const Duration(hours: 1, minutes: 30);
+    case ItemKind.rest:
+      return const Duration(minutes: 45);
+    case ItemKind.gap:
+      return const Duration(minutes: 30);
+  }
+}
+
+DateTime dayAnchor(DateTime date, [int hour = 9]) => DateTime(date.year, date.month, date.day, hour);
+
+DateTime suggestInsertStart(DayPlan day, DateTime date) {
+  final timed = day.items.where((item) => item.end != null).toList();
+  if (timed.isEmpty) return dayAnchor(date);
+  final last = timed.reduce((a, b) => a.end!.isAfter(b.end!) ? a : b);
+  return last.end!;
+}
+
+void sortItemsByStart(DayPlan day) {
+  day.items.sort((a, b) {
+    final as = a.start;
+    final bs = b.start;
+    if (as == null && bs == null) return 0;
+    if (as == null) return 1;
+    if (bs == null) return -1;
+    return as.compareTo(bs);
+  });
+}
+
+void reflowSequentialTimes(DayPlan day) {
+  final date = day.date;
+  var cursor = dayAnchor(date);
+  for (final item in day.items) {
+    if (item.start == null && item.end == null) continue;
+    final duration =
+        item.start != null && item.end != null ? item.end!.difference(item.start!) : defaultDuration(item.kind);
+    item.start = cursor;
+    item.end = cursor.add(duration);
+    cursor = item.end!;
+  }
+}
+
+void reorderDayItems(DayPlan day, int oldIndex, int newIndex) {
+  var target = newIndex;
+  if (oldIndex < target) target -= 1;
+  final item = day.items.removeAt(oldIndex);
+  day.items.insert(target, item);
+  reflowSequentialTimes(day);
+}
+
+ItemKind kindForPlace(PlaceCategory category) =>
+    category == PlaceCategory.restaurant ? ItemKind.meal : ItemKind.stay;
