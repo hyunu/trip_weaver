@@ -10,6 +10,7 @@ import '../shell/scope.dart';
 import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
+import '../widgets/itinerary_item_sheets.dart';
 import '../widgets/place_panel.dart';
 import '../widgets/schedule_block.dart';
 
@@ -369,44 +370,84 @@ class _Timeline extends StatelessWidget {
     final controller = TripScope.of(context);
     final day = controller.visibleDay(trip);
     final items = day?.items ?? const <PlanItem>[];
+    final canEdit = controller.editableDay() != null;
     return ScrollHost(
       id: 'itinerary',
       builder: (context, scroll) {
-        if (items.isEmpty) {
-          return ListView(
-            controller: scroll,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              if (trip.activeDays.isEmpty && !controller.reviewingProposal)
-                const QuietEmpty(
-                  key: Key('itinerary-none'),
-                  title: '아직 일정이 없습니다.',
-                  message: '일정 만들기를 누르면 적용하기 전에 제안을 먼저 보여 줍니다.',
-                  icon: CupertinoIcons.calendar,
-                )
-              else
-                QuietEmpty(
-                  key: const Key('itinerary-day-empty'),
-                  message: controller.reviewingProposal ? '이 날짜에는 제안된 일정이 없습니다.' : '이 날짜에는 적용된 일정이 없습니다.',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppButton(
+                  key: const Key('itinerary-add'),
+                  label: '+ 추가',
+                  filled: false,
+                  onPressed: canEdit ? () => ItineraryAddSheet.show(context) : null,
                 ),
-            ],
-          );
-        }
-        return ListView.separated(
-          key: const Key('itinerary-scroll'),
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          itemCount: items.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return ScheduleBlock(
-              item: item,
-              proposal: controller.reviewingProposal,
-              selected: controller.selectedItemId == item.id,
-              onTap: () => controller.openItem(item.id, tablet: tablet),
-            );
-          },
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? ListView(
+                      controller: scroll,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      children: [
+                        if (trip.activeDays.isEmpty && !controller.reviewingProposal)
+                          const QuietEmpty(
+                            key: Key('itinerary-none'),
+                            title: '아직 일정이 없습니다.',
+                            message: '일정 만들기를 누르면 적용하기 전에 제안을 먼저 보여 줍니다. + 추가로 직접 넣을 수도 있습니다.',
+                            icon: CupertinoIcons.calendar,
+                          )
+                        else
+                          QuietEmpty(
+                            key: const Key('itinerary-day-empty'),
+                            message: controller.reviewingProposal ? '이 날짜에는 제안된 일정이 없습니다.' : '이 날짜에는 적용된 일정이 없습니다.',
+                          ),
+                      ],
+                    )
+                  : ReorderableListView.builder(
+                      key: const Key('itinerary-scroll'),
+                      scrollController: scroll,
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: items.length,
+                      onReorder: controller.reorderItineraryItem,
+                      proxyDecorator: (child, index, animation) => Material(elevation: 4, color: Colors.transparent, child: child),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Padding(
+                          key: ValueKey(item.id),
+                          padding: EdgeInsets.only(bottom: index < items.length - 1 ? 8 : 0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(top: 14, right: 4),
+                                  child: Icon(CupertinoIcons.bars, size: 18, color: AppColors.secondary),
+                                ),
+                              ),
+                              Expanded(
+                                child: ScheduleBlock(
+                                  item: item,
+                                  proposal: controller.reviewingProposal,
+                                  selected: controller.selectedItemId == item.id,
+                                  onTap: () => controller.openItem(item.id, tablet: tablet),
+                                  onEditTime: () => ItineraryTimeSheet.show(context, item),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );
@@ -430,8 +471,25 @@ class ItemFacts extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         if (onClose != null) BackRow(onPressed: onClose!),
-        ScheduleBlock(item: item, proposal: controller.reviewingProposal),
+        ScheduleBlock(
+          item: item,
+          proposal: controller.reviewingProposal,
+          onEditTime: () => ItineraryTimeSheet.show(context, item),
+        ),
         const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                key: const Key('item-edit-time'),
+                label: '시간 편집',
+                filled: false,
+                onPressed: () => ItineraryTimeSheet.show(context, item),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.xs),
         Row(
           children: [
             Expanded(

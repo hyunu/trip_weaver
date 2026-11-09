@@ -148,8 +148,8 @@ class PlanItem {
   final ItemKind kind;
   final String title;
   final String? placeId;
-  final DateTime? start;
-  final DateTime? end;
+  DateTime? start;
+  DateTime? end;
   final String? categoryLabel;
   final List<String> unconfirmedFields;
   final List<ItemWarning> warnings;

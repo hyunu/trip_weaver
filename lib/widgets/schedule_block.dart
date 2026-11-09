@@ -6,13 +6,22 @@ import '../model/models.dart';
 import '../theme/app_theme.dart';
 
 class ScheduleBlock extends StatelessWidget {
-  const ScheduleBlock({super.key, required this.item, this.emphasize = false, this.proposal = false, this.selected = false, this.onTap});
+  const ScheduleBlock({
+    super.key,
+    required this.item,
+    this.emphasize = false,
+    this.proposal = false,
+    this.selected = false,
+    this.onTap,
+    this.onEditTime,
+  });
 
   final PlanItem item;
   final bool emphasize;
   final bool proposal;
   final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onEditTime;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +85,18 @@ class ScheduleBlock extends StatelessWidget {
                 const _Marker(label: '충돌', detail: '운영시간', foreground: AppColors.conflictFg, background: AppColors.conflictBg),
               ],
               const SizedBox(height: AppSpace.xs),
-              Text(itemTimeLabel(item), style: AppType.footnote),
+              Row(
+                children: [
+                  Expanded(child: Text(itemTimeLabel(item), style: AppType.footnote)),
+                  if (onEditTime != null)
+                    TextButton(
+                      key: Key('item-time-edit-${item.id}'),
+                      onPressed: onEditTime,
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      child: const Text('시간', style: AppType.footnote),
+                    ),
+                ],
+              ),
               if (item.title.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.xxs),
                 Text(item.title, style: emphasize ? AppType.cardTitle : AppType.headline),

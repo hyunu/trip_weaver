@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../data/countries.dart';
 import '../data/sample_catalog.dart';
 import '../logic/propose.dart';
+import '../format.dart';
 import '../logic/schedule.dart';
 import '../logic/trip_rules.dart';
 import '../logic/city_lookup.dart';
@@ -489,7 +490,7 @@ class TripController extends ChangeNotifier {
   PlanItem? _findItem(String itemId) {
     final trip = current;
     if (trip == null) return null;
-    final days = reviewingProposal ? trip.proposalDays : trip.activeDays;
+    final days = _editableDays(trip);
     if (days == null) return null;
     for (final day in days) {
       for (final item in day.items) {
@@ -497,6 +498,145 @@ class TripController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  List<DayPlan>? _editableDays(Trip trip) => reviewingProposal ? trip.proposalDays : trip.activeDays;
+
+  DayPlan? editableDay() {
+    final trip = current;
+    if (trip == null) return null;
+    final days = _editableDays(trip);
+    if (days == null) return null;
+    return dayForOrInsert(days, planDate(trip));
+  }
+
+  List<Place> placesForSelectedDay({String query = ''}) {
+    final trip = current;
+    if (trip == null) return const [];
+    final city = cityOnDate(trip, planDate(trip));
+    if (city == null) return const [];
+    final needle = query.trim();
+    return places.where((place) {
+      if (place.cityName != city.name) return false;
+      if (needle.isEmpty) return true;
+      final local = place.localName ?? '';
+      return place.name.contains(needle) || local.contains(needle);
+    }).toList();
+  }
+
+  void addItineraryPlace(Place place) {
+    final trip = current;
+    final day = editableDay();
+    if (trip == null || day == null) return;
+    final start = suggestInsertStart(day, day.date);
+    final kind = kindForPlace(place.category);
+    final item = PlanItem(
+      id: 'item-${_seq++}',
+      kind: kind,
+      title: place.name,
+      placeId: place.id,
+      categoryLabel: categoryLabel(place.category),
+      start: start,
+      end: start.add(defaultDuration(kind)),
+      locked: true,
+      dwellIsProposal: false,
+    );
+    day.items.add(item);
+    sortItemsByStart(day);
+    trip.pendingLocalEdits += 1;
+    itineraryNotice = '일정에 ${place.name}을(를) 넣었습니다.';
+    selectedItemId = item.id;
+    notifyListeners();
+  }
+
+  void addItineraryMemo({required String title, String? note}) {
+    final trip = current;
+    final day = editableDay();
+    if (trip == null || day == null || title.trim().isEmpty) return;
+    final start = suggestInsertStart(day, day.date);
+    final item = PlanItem(
+      id: 'item-${_seq++}',
+      kind: ItemKind.rest,
+      title: title.trim(),
+      note: note?.trim().isEmpty ?? true ? null : note!.trim(),
+      start: start,
+      end: start.add(defaultDuration(ItemKind.rest)),
+      locked: true,
+      dwellIsProposal: false,
+    );
+    day.items.add(item);
+    sortItemsByStart(day);
+    trip.pendingLocalEdits += 1;
+    selectedItemId = item.id;
+    notifyListeners();
+  }
+
+  void addItineraryTransport({required String title, String? note}) {
+    final trip = current;
+    final day = editableDay();
+    if (trip == null || day == null || title.trim().isEmpty) return;
+    final start = suggestInsertStart(day, day.date);
+    final item = PlanItem(
+      id: 'item-${_seq++}',
+      kind: ItemKind.move,
+      title: title.trim(),
+      note: note?.trim().isEmpty ?? true ? null : note!.trim(),
+      start: start,
+      end: start.add(defaultDuration(ItemKind.move)),
+      locked: true,
+      dwellIsProposal: false,
+    );
+    day.items.add(item);
+    sortItemsByStart(day);
+    trip.pendingLocalEdits += 1;
+    selectedItemId = item.id;
+    notifyListeners();
+  }
+
+  void addItineraryLodging({required String title, String? note}) {
+    final trip = current;
+    final day = editableDay();
+    if (trip == null || day == null || title.trim().isEmpty) return;
+    final start = suggestInsertStart(day, day.date);
+    final item = PlanItem(
+      id: 'item-${_seq++}',
+      kind: ItemKind.stay,
+      title: title.trim(),
+      categoryLabel: '숙소',
+      note: note?.trim().isEmpty ?? true ? null : note!.trim(),
+      start: start,
+      end: start.add(const Duration(hours: 10)),
+      locked: true,
+      dwellIsProposal: false,
+    );
+    day.items.add(item);
+    sortItemsByStart(day);
+    trip.pendingLocalEdits += 1;
+    selectedItemId = item.id;
+    notifyListeners();
+  }
+
+  void reorderItineraryItem(int oldIndex, int newIndex) {
+    final trip = current;
+    final day = editableDay();
+    if (trip == null || day == null) return;
+    if (oldIndex < 0 || oldIndex >= day.items.length || newIndex < 0 || newIndex > day.items.length) return;
+    reorderDayItems(day, oldIndex, newIndex);
+    trip.pendingLocalEdits += 1;
+    notifyListeners();
+  }
+
+  void updateItemTime(String itemId, {required DateTime start, required DateTime end}) {
+    final trip = current;
+    final item = _findItem(itemId);
+    final day = editableDay();
+    if (trip == null || item == null || day == null || !end.isAfter(start)) return;
+    final date = day.date;
+    item.start = DateTime(date.year, date.month, date.day, start.hour, start.minute);
+    item.end = DateTime(date.year, date.month, date.day, end.hour, end.minute);
+    sortItemsByStart(day);
+    trip.pendingLocalEdits += 1;
+    notifyListeners();
   }
 
   /// Items removed from the proposal under review; asking again leaves them out.
