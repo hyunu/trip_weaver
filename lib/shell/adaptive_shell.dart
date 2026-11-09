@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../screens/city_edit_screen.dart';
 import '../screens/explore_screen.dart';
@@ -30,8 +31,13 @@ class AdaptiveShell extends StatelessWidget {
           child: ListenableBuilder(
             listenable: controller,
             builder: (context, _) {
-              final frame = !metrics.tablet ? _PhoneFrame(controller: controller) : _TabletFrame(controller: controller, wide: metrics.wide);
-              return RepaintBoundary(key: const Key('capture-root'), child: frame);
+              final frame = !metrics.tablet
+                  ? _PhoneFrame(controller: controller)
+                  : _TabletFrame(controller: controller, wide: metrics.wide);
+              return RepaintBoundary(
+                key: const Key('capture-root'),
+                child: frame,
+              );
             },
           ),
         );
@@ -40,50 +46,177 @@ class AdaptiveShell extends StatelessWidget {
   }
 }
 
-class _PhoneFrame extends StatelessWidget {
+/// 각 탭마다 중첩 [Navigator]를 두어 상세 화면을 실제 라우트로 쌓는다.
+/// 시스템 뒤로가기·엣지 스와이프는 상세를 먼저 닫고 플래그를 내린다.
+class _PhoneFrame extends StatefulWidget {
   const _PhoneFrame({required this.controller});
 
   final TripController controller;
 
   @override
+  State<_PhoneFrame> createState() => _PhoneFrameState();
+}
+
+class _PhoneFrameState extends State<_PhoneFrame> {
+  final _navigators = List.generate(
+    _destinations.length,
+    (_) => GlobalKey<NavigatorState>(),
+  );
+
+  TripController get controller => widget.controller;
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.canvas,
-      child: Column(
-        children: [
-          Expanded(
-            child: SafeArea(bottom: false, child: _phonePage(controller)),
-          ),
-          _TabBar(index: controller.tabIndex, onTap: controller.selectTab),
-        ],
+    final tab = controller.tabIndex;
+    final pages = _phonePages(tab);
+    return PopScope(
+      canPop: tab == 0 && pages.length == 1,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (pages.length > 1) {
+          _navigators[tab].currentState?.maybePop();
+        } else if (tab != 0) {
+          controller.selectTab(0);
+        }
+      },
+      child: Material(
+        color: AppColors.canvas,
+        child: Column(
+          children: [
+            Expanded(
+              child: SafeArea(
+                bottom: false,
+                child: Navigator(
+                  key: _navigators[tab],
+                  pages: pages,
+                  onDidRemovePage: _removed,
+                ),
+              ),
+            ),
+            _TabBar(index: tab, onTap: controller.selectTab),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _phonePage(TripController controller) {
-    switch (controller.tabIndex) {
+  List<Page<void>> _phonePages(int tab) {
+    switch (tab) {
       case 0:
-        if (controller.creating) return TripFormScreen(onClose: controller.closeCreate);
-        if (controller.homePushed && controller.current != null) return TripDetailScreen(onClose: controller.closeHome);
-        return const HomeScreen(tablet: false);
+        return [
+          _page(_PhonePage.home, const HomeScreen(tablet: false)),
+          if (controller.creating)
+            _page(
+              _PhonePage.tripForm,
+              TripFormScreen(onClose: controller.closeCreate),
+            )
+          else if (controller.homePushed && controller.current != null)
+            _page(
+              _PhonePage.tripDetail,
+              TripDetailScreen(onClose: controller.closeHome),
+            ),
+        ];
       case 1:
-        if (controller.current == null) return const NeedTrip(title: '탐색', titleKey: Key('screen-title-explore'));
-        if (controller.editingCity) return CityEditScreen(onClose: controller.closeCityEdit);
+        if (controller.current == null) {
+          return [
+            _page(
+              _PhonePage.explore,
+              const NeedTrip(
+                title: '탐색',
+                titleKey: Key('screen-title-explore'),
+              ),
+            ),
+          ];
+        }
         final place = controller.placeById(controller.selectedPlaceId);
-        if (controller.explorePushed && place != null) return PlacePanel(place: place, onClose: controller.closeExplore);
-        return const ExploreScreen(tablet: false);
+        return [
+          _page(_PhonePage.explore, const ExploreScreen(tablet: false)),
+          if (controller.editingCity)
+            _page(
+              _PhonePage.cityEdit,
+              CityEditScreen(onClose: controller.closeCityEdit),
+            )
+          else if (controller.explorePushed && place != null)
+            _page(
+              _PhonePage.place,
+              PlacePanel(place: place, onClose: controller.closeExplore),
+            ),
+        ];
       case 2:
-        if (controller.current == null) return const NeedTrip(title: '일정', titleKey: Key('screen-title-itinerary'));
-        if (controller.itineraryPushed && controller.selectedItem() != null) return ItemFacts(onClose: controller.closeItinerary);
-        return const ItineraryScreen(tablet: false, wide: false);
+        if (controller.current == null) {
+          return [
+            _page(
+              _PhonePage.itinerary,
+              const NeedTrip(
+                title: '일정',
+                titleKey: Key('screen-title-itinerary'),
+              ),
+            ),
+          ];
+        }
+        return [
+          _page(
+            _PhonePage.itinerary,
+            const ItineraryScreen(tablet: false, wide: false),
+          ),
+          if (controller.itineraryPushed && controller.selectedItem() != null)
+            _page(
+              _PhonePage.item,
+              ItemFacts(onClose: controller.closeItinerary),
+            ),
+        ];
       case 3:
-        return const UnderwayScreen(tablet: false);
+        return [
+          _page(_PhonePage.underway, const UnderwayScreen(tablet: false)),
+        ];
       case 4:
-        return const JournalScreen(tablet: false);
+        return [_page(_PhonePage.journal, const JournalScreen(tablet: false))];
       default:
-        return const SizedBox.shrink();
+        return [_page(_PhonePage.home, const SizedBox.shrink())];
     }
   }
+
+  Page<void> _page(_PhonePage kind, Widget child) {
+    return MaterialPage<void>(
+      key: ValueKey(kind),
+      name: kind.name,
+      child: Material(color: AppColors.canvas, child: child),
+    );
+  }
+
+  void _removed(Page<Object?> page) {
+    final kind = (page.key as ValueKey<_PhonePage>?)?.value;
+    final VoidCallback? close = switch (kind) {
+      _PhonePage.tripForm when controller.creating => controller.closeCreate,
+      _PhonePage.tripDetail when controller.homePushed => controller.closeHome,
+      _PhonePage.cityEdit when controller.editingCity =>
+        controller.closeCityEdit,
+      _PhonePage.place when controller.explorePushed => controller.closeExplore,
+      _PhonePage.item when controller.itineraryPushed =>
+        controller.closeItinerary,
+      _ => null,
+    };
+    if (close == null) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => close());
+    } else {
+      close();
+    }
+  }
+}
+
+enum _PhonePage {
+  home,
+  tripForm,
+  tripDetail,
+  explore,
+  cityEdit,
+  place,
+  itinerary,
+  item,
+  underway,
+  journal,
 }
 
 class _TabletFrame extends StatelessWidget {
@@ -94,15 +227,24 @@ class _TabletFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.canvas,
-      child: SafeArea(
-        child: Row(
-          children: [
-            _Rail(index: controller.tabIndex, onTap: controller.selectTab),
-            const VerticalDivider(width: 1),
-            Expanded(child: _tabletBody(controller)),
-          ],
+    final editingCity = controller.tabIndex == 1 &&
+        controller.editingCity &&
+        controller.current != null;
+    return PopScope(
+      canPop: !editingCity,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && editingCity) controller.closeCityEdit();
+      },
+      child: Material(
+        color: AppColors.canvas,
+        child: SafeArea(
+          child: Row(
+            children: [
+              _Rail(index: controller.tabIndex, onTap: controller.selectTab),
+              const VerticalDivider(width: 1),
+              Expanded(child: _tabletBody(controller)),
+            ],
+          ),
         ),
       ),
     );
@@ -125,7 +267,11 @@ class _TabletFrame extends StatelessWidget {
           ],
         );
       case 1:
-        if (controller.current == null) return const NeedTrip(title: '탐색', titleKey: Key('screen-title-explore'));
+        if (controller.current == null)
+          return const NeedTrip(
+            title: '탐색',
+            titleKey: Key('screen-title-explore'),
+          );
         final place = controller.placeById(controller.selectedPlaceId);
         return Row(
           children: [
@@ -146,14 +292,21 @@ class _TabletFrame extends StatelessWidget {
   }
 
   Widget _exploreDetail(TripController controller, place) {
-    if (controller.editingCity) return CityEditScreen(onClose: controller.closeCityEdit);
-    if (place == null) return const EmptyPane(title: '장소', message: '장소를 고르세요.');
+    if (controller.editingCity)
+      return CityEditScreen(onClose: controller.closeCityEdit);
+    if (place == null)
+      return const EmptyPane(title: '장소', message: '장소를 고르세요.');
     if (!wide) return PlacePanel(place: place);
     return Row(
       children: [
-        Expanded(child: PlacePanel(place: place, pane: FactPane.facts)),
+        Expanded(
+          child: PlacePanel(place: place, pane: FactPane.facts),
+        ),
         const VerticalDivider(width: 1),
-        SizedBox(width: 320, child: PlacePanel(place: place, pane: FactPane.sources)),
+        SizedBox(
+          width: 320,
+          child: PlacePanel(place: place, pane: FactPane.sources),
+        ),
       ],
     );
   }
@@ -216,7 +369,11 @@ class _TabBar extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.secondary),
+                            Icon(_destinations[i].icon,
+                                size: 22,
+                                color: i == index
+                                    ? AppColors.accent
+                                    : AppColors.secondary),
                             const SizedBox(height: 2),
                             Text(
                               _destinations[i].shortLabel,
@@ -224,8 +381,12 @@ class _TabBar extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: AppType.caption.copyWith(
                                 height: 1.1,
-                                color: i == index ? AppColors.accent : AppColors.secondary,
-                                fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
+                                color: i == index
+                                    ? AppColors.accent
+                                    : AppColors.secondary,
+                                fontWeight: i == index
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                           ],
@@ -261,7 +422,8 @@ class _Rail extends StatelessWidget {
             children: [
               for (var i = 0; i < _destinations.length; i++)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   child: Semantics(
                     button: true,
                     selected: i == index,
@@ -274,17 +436,31 @@ class _Rail extends StatelessWidget {
                       child: Container(
                         constraints: const BoxConstraints(minHeight: 48),
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(color: i == index ? AppColors.accentSoft : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(
+                            color: i == index
+                                ? AppColors.accentSoft
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12)),
                         child: Column(
                           children: [
-                            Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.secondary),
+                            Icon(_destinations[i].icon,
+                                size: 22,
+                                color: i == index
+                                    ? AppColors.accent
+                                    : AppColors.secondary),
                             const SizedBox(height: 2),
                             Text(
                               _destinations[i].shortLabel,
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppType.caption.copyWith(color: i == index ? AppColors.accent : AppColors.secondary, fontWeight: i == index ? FontWeight.w600 : FontWeight.w500),
+                              style: AppType.caption.copyWith(
+                                  color: i == index
+                                      ? AppColors.accent
+                                      : AppColors.secondary,
+                                  fontWeight: i == index
+                                      ? FontWeight.w600
+                                      : FontWeight.w500),
                             ),
                           ],
                         ),
