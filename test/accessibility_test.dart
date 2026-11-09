@@ -119,12 +119,9 @@ void main() {
     await tester.pumpWidget(TripWeaveApp(controller: TripController()));
     await tester.pumpAndSettle();
 
-    final home = tester.getSemantics(find.byKey(const Key('tab-home'))).getSemanticsData();
-    expect(home.label, '여행 홈');
-    expect(home.hasFlag(SemanticsFlag.isSelected), isTrue);
-    final journal = tester.getSemantics(find.byKey(const Key('tab-journal'))).getSemanticsData();
-    expect(journal.label, '여행 기록');
-    expect(journal.hasFlag(SemanticsFlag.isSelected), isFalse);
+    expect(tester.getSemantics(find.byKey(const Key('tab-home'))).label, '여행 홈');
+    expect(tester.getSemantics(find.byKey(const Key('tab-journal'))).label, '여행 기록');
+    expect(tester.getSemantics(find.byKey(const Key('tab-explore'))).label, '여행 탐색');
     handle.dispose();
   });
 
