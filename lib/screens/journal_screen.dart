@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -53,22 +55,20 @@ class JournalScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Expanded(
+        Expanded(
           child: Row(
             children: [
-              SizedBox(width: 360, child: _DateList()),
-              VerticalDivider(width: 1),
+              const SizedBox(width: 360, child: _DateList()),
+              const VerticalDivider(width: 1),
               Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _EmptyRecord(),
-                      SizedBox(height: 12),
-                      _RecordSections(),
-                    ],
-                  ),
+                child: ListView(
+                  key: const Key('journal-detail-scroll'),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: const [
+                    _EmptyRecord(),
+                    SizedBox(height: 12),
+                    _RecordSections(),
+                  ],
                 ),
               ),
             ],
@@ -88,8 +88,10 @@ class _DateStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
     final days = tripDays(trip);
+    final scaler = MediaQuery.textScalerOf(context);
     return SizedBox(
-      height: 64,
+      // Two text lines plus padding, so the tokens stay legible at large text.
+      height: math.max(64, scaler.scale(17) * 22 / 17 + scaler.scale(12) * 16 / 12 + 12),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: days.length,
@@ -101,6 +103,7 @@ class _DateStrip extends StatelessWidget {
           return DateToken(
             label: '${day.month}.${day.day}',
             note: noted ? '기록 있음' : '기록 없음',
+            semanticsLabel: '${formatMonthDay(day)} ${weekdayKo(day)}요일, ${noted ? '기록 있음' : '기록 없음'}',
             selected: selected,
             width: 96,
             onTap: () => controller.selectJournalDate(day),

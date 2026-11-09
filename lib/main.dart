@@ -33,7 +33,12 @@ class _TripWeaveAppState extends State<TripWeaveApp> {
   }
 
   Future<void> _openStoredTrips() async {
-    final store = await FileTripStore.open();
+    FileTripStore? store;
+    try {
+      store = await FileTripStore.open();
+    } on Object {
+      store = null;
+    }
     final next = TripController(now: widget.now, store: store);
     await next.restore();
     if (!mounted) {

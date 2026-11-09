@@ -119,8 +119,8 @@ class _TabletFrame extends StatelessWidget {
               child: controller.creating
                   ? TripFormScreen(onClose: controller.closeCreate)
                   : controller.current == null
-                  ? const EmptyPane(title: '여행', message: '여행을 고르세요.')
-                  : const TripDetailScreen(),
+                      ? const EmptyPane(title: '여행', message: '여행을 고르세요.')
+                      : const TripDetailScreen(),
             ),
           ],
         );
@@ -195,35 +195,46 @@ class _TabBar extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: clearance),
-        child: SizedBox(
-          height: 52,
-          child: Row(
-            children: [
-              for (var i = 0; i < _destinations.length; i++)
-                Expanded(
-                  child: InkWell(
-                    key: Key('tab-${_destinations[i].keyName}'),
-                    onTap: () => onTap(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.tertiary),
-                        const SizedBox(height: 2),
-                        Text(
-                          _destinations[i].shortLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppType.caption.copyWith(
-                            height: 1.1,
-                            color: i == index ? AppColors.accent : AppColors.tertiary,
-                            fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
-                          ),
+        // Labels are capped so five tabs keep fitting one row; the full
+        // destination name is in each tab's semantics label.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.5,
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              children: [
+                for (var i = 0; i < _destinations.length; i++)
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: i == index,
+                      label: _destinations[i].label,
+                      excludeSemantics: true,
+                      child: InkWell(
+                        key: Key('tab-${_destinations[i].keyName}'),
+                        onTap: () => onTap(i),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.secondary),
+                            const SizedBox(height: 2),
+                            Text(
+                              _destinations[i].shortLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppType.caption.copyWith(
+                                height: 1.1,
+                                color: i == index ? AppColors.accent : AppColors.secondary,
+                                fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -241,39 +252,48 @@ class _Rail extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 80,
-      child: ColoredBox(
-        color: const Color(0xFFF7F7F8),
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            for (var i = 0; i < _destinations.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: InkWell(
-                  key: Key('rail-${_destinations[i].keyName}'),
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => onTap(i),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(color: i == index ? AppColors.accentSoft : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-                    child: Column(
-                      children: [
-                        Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.tertiary),
-                        const SizedBox(height: 2),
-                        Text(
-                          _destinations[i].shortLabel,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppType.caption.copyWith(color: i == index ? AppColors.accent : AppColors.secondary, fontWeight: i == index ? FontWeight.w600 : FontWeight.w500),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.5,
+        child: ColoredBox(
+          color: const Color(0xFFF7F7F8),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              for (var i = 0; i < _destinations.length; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Semantics(
+                    button: true,
+                    selected: i == index,
+                    label: _destinations[i].label,
+                    excludeSemantics: true,
+                    child: InkWell(
+                      key: Key('rail-${_destinations[i].keyName}'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => onTap(i),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(color: i == index ? AppColors.accentSoft : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                        child: Column(
+                          children: [
+                            Icon(_destinations[i].icon, size: 22, color: i == index ? AppColors.accent : AppColors.secondary),
+                            const SizedBox(height: 2),
+                            Text(
+                              _destinations[i].shortLabel,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppType.caption.copyWith(color: i == index ? AppColors.accent : AppColors.secondary, fontWeight: i == index ? FontWeight.w600 : FontWeight.w500),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

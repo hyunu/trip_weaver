@@ -23,102 +23,110 @@ class ExploreScreen extends StatelessWidget {
     final blocked = city == null || !city.coordinateConfirmed;
     final results = controller.visiblePlaces();
     final pins = blocked ? const <MapPin>[] : explorePins(results, selectedId: controller.selectedPlaceId);
-    return Column(
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PageHeader(title: '탐색', titleKey: const Key('screen-title-explore'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
-              _CatalogState(sample: trip.dataOriginMock, offline: controller.offline),
-              if (!blocked) ...[
-                const SizedBox(height: 8),
-                AppButton(key: const Key('search-city'), label: '이 도시에서 찾기', onPressed: () => controller.setQuery(controller.searchQuery)),
-                const SizedBox(height: 6),
-                Text(
-                  trip.dataOriginMock ? '순서는 샘플에 넣은 순서입니다. 후기 점수로 줄을 세우지 않습니다.' : '후기 자료가 연결되지 않아 추천 순서가 없습니다.',
-                  style: AppType.footnote,
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (pins.isNotEmpty) ...[
+        PageHeader(title: '탐색', titleKey: const Key('screen-title-explore'), subtitle: cityTripLabel(controller.selectedCity?.name, trip.title)),
+        _CatalogState(sample: trip.dataOriginMock, offline: controller.offline),
+        if (!blocked) ...[
           const SizedBox(height: 8),
-          SizedBox(
+          AppButton(key: const Key('search-city'), label: '이 도시에서 찾기', onPressed: () => controller.setQuery(controller.searchQuery)),
+          const SizedBox(height: 6),
+          Text(
+            trip.dataOriginMock ? '순서는 샘플에 넣은 순서입니다. 후기 점수로 줄을 세우지 않습니다.' : '후기 자료가 연결되지 않아 추천 순서가 없습니다.',
+            style: AppType.footnote,
+          ),
+        ],
+      ],
+    );
+    final map = pins.isEmpty
+        ? null
+        : SizedBox(
             height: 240,
             child: MapFrame(
               expand: true,
-              child: TripMap(
-                pins: pins,
-                onPinTap: (pin) => controller.openPlace(pin.placeId, tablet: tablet),
+              child: TripMap(pins: pins, onPinTap: (pin) => controller.openPlace(pin.placeId, tablet: tablet)),
+            ),
+          );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // With large text or a short window the fixed header and map would
+        // leave no room for the list, so everything scrolls together.
+        final inline = MediaQuery.textScalerOf(context).scale(17) > 17 * 1.25 || constraints.maxHeight < 640;
+        return Column(
+          children: [
+            if (!inline) ...[
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: header),
+              if (map != null) ...[const SizedBox(height: 8), map],
+            ],
+            Expanded(
+              child: ScrollHost(
+                id: 'explore',
+                builder: (context, scroll) {
+                  return ListView(
+                    key: const Key('explore-scroll'),
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    children: [
+                      if (inline) ...[
+                        header,
+                        if (map != null) ...[const SizedBox(height: 8), map],
+                      ],
+                      const SectionLabel('도시'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final item in trip.cities)
+                            SelectChip(
+                              label: item.name,
+                              note: item.coordinateConfirmed ? null : '위치 미확인',
+                              selected: item.id == controller.selectedCityId,
+                              onTap: () => controller.selectCity(item.id),
+                            ),
+                        ],
+                      ),
+                      const SectionLabel('분류'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final category in PlaceCategory.values)
+                            SelectChip(
+                              label: categoryLabel(category),
+                              selected: controller.categoryFilter == category,
+                              onTap: () => controller.setCategory(category),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('place-query'),
+                        style: AppType.body,
+                        decoration: AppFields.decoration(blocked ? '저장된 장소' : '장소 이름'),
+                        readOnly: blocked,
+                        onChanged: blocked ? null : controller.setQuery,
+                      ),
+                      const SizedBox(height: 8),
+                      if (blocked) ...[
+                        const Text('도시 위치가 확인되지 않았습니다.', style: AppType.body),
+                        const SizedBox(height: 8),
+                        AppButton(label: '도시 편집으로 이동', filled: false, onPressed: controller.openCityEdit),
+                      ] else ...[
+                        const SizedBox(height: 4),
+                        if (results.isEmpty)
+                          const QuietEmpty(message: '이 조건의 장소가 없습니다.')
+                        else
+                          for (final place in results) _PlaceCard(place: place, tablet: tablet),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
-          ),
-        ],
-        Expanded(
-          child: ScrollHost(
-            id: 'explore',
-            builder: (context, scroll) {
-              return ListView(
-                key: const Key('explore-scroll'),
-                controller: scroll,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                children: [
-            const SectionLabel('도시'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final item in trip.cities)
-                  SelectChip(
-                    label: item.name,
-                    note: item.coordinateConfirmed ? null : '위치 미확인',
-                    selected: item.id == controller.selectedCityId,
-                    onTap: () => controller.selectCity(item.id),
-                  ),
-              ],
-            ),
-            const SectionLabel('분류'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final category in PlaceCategory.values)
-                  SelectChip(
-                    label: categoryLabel(category),
-                    selected: controller.categoryFilter == category,
-                    onTap: () => controller.setCategory(category),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('place-query'),
-              style: AppType.body,
-              decoration: AppFields.decoration(blocked ? '저장된 장소' : '장소 이름'),
-              readOnly: blocked,
-              onChanged: blocked ? null : controller.setQuery,
-            ),
-            const SizedBox(height: 8),
-            if (blocked) ...[
-              const Text('도시 위치가 확인되지 않았습니다.', style: AppType.body),
-              const SizedBox(height: 8),
-              AppButton(label: '도시 편집으로 이동', filled: false, onPressed: controller.openCityEdit),
-            ] else ...[
-              const SizedBox(height: 4),
-              if (results.isEmpty)
-                const QuietEmpty(message: '이 조건의 장소가 없습니다.')
-              else
-                for (final place in results) _PlaceCard(place: place, tablet: tablet),
-            ],
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -216,7 +224,7 @@ class _CatalogState extends StatelessWidget {
         children: [
           Text(title, style: AppType.footnoteStrong),
           const SizedBox(height: 2),
-          Text(body, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
+          Text(body, style: AppType.footnote),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
@@ -226,7 +234,7 @@ class _CatalogState extends StatelessWidget {
                 final category = controller.categoryFilter;
                 if (category != null) controller.setCategory(category);
               },
-              style: TextButton.styleFrom(minimumSize: const Size(44, 36), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
               child: Text(filtered ? '필터 지우고 샘플 전체 보기' : '샘플 전체 목록 유지', style: AppType.footnoteStrong.copyWith(color: AppColors.accent)),
             ),
           ),

@@ -27,8 +27,18 @@ String formatStamp(DateTime? date) {
 String formatMonthDay(DateTime date) => '${date.month}월 ${date.day}일';
 
 String cityTripLabel(String? cityName, String tripTitle) {
-  if (cityName == null || cityName.isEmpty) return tripTitle;
-  return '$cityName · $tripTitle';
+  if (cityName == null || cityName.isEmpty) return displayTitle(tripTitle);
+  return '$cityName · ${displayTitle(tripTitle)}';
+}
+
+String displayTitle(String title) => title.trim().isEmpty ? '제목 없는 여행' : title;
+
+/// City names for a trip card; long lists name the first three only.
+String citySummary(Trip trip, {int shown = 3}) {
+  final names = trip.cities.map((city) => city.name.trim().isEmpty ? '이름 없는 도시' : city.name).toList();
+  if (names.isEmpty) return '도시 없음';
+  if (names.length <= shown) return '${names.join(', ')} · 도시 ${names.length}곳';
+  return '${names.take(shown).join(', ')} 외 ${names.length - shown}곳 · 도시 ${names.length}곳';
 }
 
 String itemTimeLabel(PlanItem item) {

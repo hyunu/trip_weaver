@@ -113,7 +113,7 @@ class NoticeBanner extends StatelessWidget {
           Icon(icon, size: 16, color: foreground),
           const SizedBox(width: AppSpace.xs),
           Expanded(
-            child: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.banner.copyWith(color: foreground)),
+            child: Text(message, style: AppType.banner.copyWith(color: foreground)),
           ),
         ],
       ),
@@ -242,7 +242,7 @@ class BackRow extends StatelessWidget {
       child: TextButton.icon(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          minimumSize: const Size(44, 44),
+          minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 0),
           alignment: Alignment.centerLeft,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -297,29 +297,52 @@ class EmptyPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
-                child: const Icon(CupertinoIcons.square_list, size: 22, color: AppColors.accent),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              Text(title, style: AppType.title, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpace.xs),
-              Text(message, style: AppType.body.copyWith(color: AppColors.secondary), textAlign: TextAlign.center),
-            ],
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: AppColors.accentSoft, shape: BoxShape.circle),
+                  child: const Icon(CupertinoIcons.square_list, size: 22, color: AppColors.accent),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Text(title, style: AppType.title, textAlign: TextAlign.center),
+                const SizedBox(height: AppSpace.xs),
+                Text(message, style: AppType.body.copyWith(color: AppColors.secondary), textAlign: TextAlign.center),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A full-height column whose [Expanded] children share the spare space, and
+/// which scrolls instead of overflowing when the content is taller than the
+/// screen (short phones, large text).
+class FillOrScroll extends StatelessWidget {
+  const FillOrScroll({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+        ),
+      ],
     );
   }
 }
@@ -334,8 +357,7 @@ class NeedTrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.page),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: FillOrScroll(
         children: [
           PageHeader(title: title, titleKey: titleKey),
           Expanded(
@@ -371,26 +393,30 @@ class SelectChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground = selected ? Colors.white : AppColors.ink;
     final noteColor = selected ? const Color(0xE6FFFFFF) : AppColors.secondary;
-    return Material(
-      color: selected ? AppColors.accent : AppColors.card,
-      borderRadius: BorderRadius.circular(AppRadii.control),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? AppColors.accent : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.control),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: AppType.headline.copyWith(color: foreground)),
-              if (note != null) Text(note!, style: AppType.caption.copyWith(color: noteColor)),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(color: selected ? AppColors.accent : AppColors.line),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppType.headline.copyWith(color: foreground)),
+                if (note != null) Text(note!, style: AppType.caption.copyWith(color: noteColor)),
+              ],
+            ),
           ),
         ),
       ),
@@ -399,7 +425,7 @@ class SelectChip extends StatelessWidget {
 }
 
 class DateToken extends StatelessWidget {
-  const DateToken({super.key, required this.label, required this.note, required this.selected, required this.onTap, this.width = 84});
+  const DateToken({super.key, required this.label, required this.note, required this.selected, required this.onTap, this.width = 84, this.semanticsLabel});
 
   final String label;
   final String note;
@@ -407,29 +433,44 @@ class DateToken extends StatelessWidget {
   final VoidCallback onTap;
   final double width;
 
+  /// Spoken instead of the compact visual label, e.g. '11월 8일 일요일, 기록 없음'.
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
     final foreground = selected ? Colors.white : AppColors.ink;
     final noteColor = selected ? const Color(0xE6FFFFFF) : AppColors.secondary;
-    return Material(
-      color: selected ? AppColors.accent : AppColors.card,
-      borderRadius: BorderRadius.circular(AppRadii.control),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semanticsLabel,
+      excludeSemantics: semanticsLabel != null,
+      child: Material(
+        color: selected ? AppColors.accent : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.control),
-        child: Container(
-          width: width,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            border: Border.all(color: selected ? AppColors.accent : AppColors.line),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(label, style: AppType.headline.copyWith(color: foreground)),
-              Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.caption.copyWith(color: noteColor)),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: Container(
+            width: width,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.xxs, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(color: selected ? AppColors.accent : AppColors.line),
+            ),
+            // The strip that hosts these tokens has a fixed height; at large
+            // text scales the label shrinks to fit instead of overflowing.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label, style: AppType.headline.copyWith(color: foreground)),
+                  Text(note, maxLines: 1, style: AppType.caption.copyWith(color: noteColor)),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -447,19 +488,23 @@ class DateRailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        color: selected ? AppColors.accentSoft : null,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
-            const SizedBox(height: 2),
-            Text(note, style: AppType.caption.copyWith(color: selected ? AppColors.accent : AppColors.secondary)),
-          ],
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          color: selected ? AppColors.accentSoft : null,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppType.headline.copyWith(color: selected ? AppColors.accent : AppColors.ink)),
+              const SizedBox(height: 2),
+              Text(note, style: AppType.caption.copyWith(color: selected ? AppColors.accent : AppColors.secondary)),
+            ],
+          ),
         ),
       ),
     );
@@ -489,11 +534,16 @@ class MapFrame extends StatelessWidget {
           children: [
             if (expand) Expanded(child: child) else child,
             if (note != null)
-              ColoredBox(
-                color: AppColors.moveBg,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-                  child: Text(note!, style: AppType.footnote.copyWith(color: AppColors.offlineFg)),
+              // An expanded frame has a fixed height shared with the map, so
+              // the note's growth is capped to leave the map visible.
+              MediaQuery.withClampedTextScaling(
+                maxScaleFactor: expand ? 1.5 : double.infinity,
+                child: ColoredBox(
+                  color: AppColors.moveBg,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+                    child: Text(note!, style: AppType.footnote.copyWith(color: AppColors.offlineFg)),
+                  ),
                 ),
               ),
           ],

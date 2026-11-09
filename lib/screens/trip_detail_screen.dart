@@ -33,7 +33,7 @@ class TripDetailScreen extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(side, AppSpace.xs, side, AppSpace.lg),
           children: [
             if (onClose != null) BackRow(onPressed: onClose!),
-            Text(trip.title, style: AppType.title),
+            Text(displayTitle(trip.title), style: AppType.title),
             const SizedBox(height: AppSpace.xxs),
             Text('${statusLabel(trip.status)} · ${trip.countryCode} ${trip.countryName}', style: AppType.footnote),
             const SizedBox(height: AppSpace.xxs),
@@ -43,10 +43,7 @@ class TripDetailScreen extends StatelessWidget {
               Text('이 기기에만 있는 수정 ${trip.pendingLocalEdits}건', style: AppType.footnote),
             ],
             const SectionLabel('다음 일정'),
-            if (next == null)
-              Text(trip.activeDays.isEmpty ? '적용된 일정이 없습니다.' : nextScheduleLine(trip, controller.now), style: AppType.body)
-            else
-              ScheduleBlock(item: next),
+            if (next == null) Text(trip.activeDays.isEmpty ? '적용된 일정이 없습니다.' : nextScheduleLine(trip, controller.now), style: AppType.body) else ScheduleBlock(item: next),
             const SizedBox(height: AppSpace.sm),
             AppButton(
               key: const Key('detail-open-itinerary'),
@@ -117,7 +114,8 @@ class TripDetailScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('‘${trip.title}’ 여행을 삭제할까요?', style: AppType.headline),
+          scrollable: true,
+          title: Text('‘${displayTitle(trip.title)}’ 여행을 삭제할까요?', style: AppType.headline),
           content: const Text('일정과 장소 선택이 이 기기에서 함께 지워집니다. 되돌릴 수 없습니다.', style: AppType.body),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('취소')),

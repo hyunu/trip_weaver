@@ -12,12 +12,15 @@ import 'trip_store.dart';
 
 class TripController extends ChangeNotifier {
   TripController({DateTime? now, SampleCatalog? catalog, TripStore? store})
-    : now = now ?? DateTime(2026, 11, 8, 10, 40),
-      _store = store {
+      : now = now ?? DateTime(2026, 11, 8, 10, 40),
+        _store = store {
     final seed = catalog ?? buildSampleCatalog();
     trips = seed.trips;
     places = seed.places;
-    _sampleTripIds = {for (final trip in seed.trips) if (trip.dataOriginMock) trip.id};
+    _sampleTripIds = {
+      for (final trip in seed.trips)
+        if (trip.dataOriginMock) trip.id
+    };
     currentTripId = seed.currentTripId;
     selectedDate = dateOnly(this.now);
     journalDate = dateOnly(this.now);
@@ -65,7 +68,12 @@ class TripController extends ChangeNotifier {
   Future<void> restore() async {
     final store = _store;
     if (store == null) return;
-    final snapshot = await store.read();
+    TripSnapshot? snapshot;
+    try {
+      snapshot = await store.read();
+    } on Object {
+      snapshot = null;
+    }
     if (snapshot == null) return;
     for (final trip in snapshot.trips) {
       if (_sampleTripIds.contains(trip.id)) trip.dataOriginMock = true;
@@ -88,8 +96,18 @@ class TripController extends ChangeNotifier {
     final store = _store;
     if (store == null) return;
     final encoded = encodeTripSnapshot(TripSnapshot(trips: trips, currentTripId: currentTripId, nextSeq: _seq));
-    _saveChain = _saveChain.catchError((Object _) {}).then((_) => store.write(encoded));
+    _saveChain = _saveChain.then((_) async {
+      try {
+        await store.write(encoded);
+        lastSaveError = null;
+      } on Object catch (error) {
+        lastSaveError = error;
+      }
+    });
   }
+
+  /// The error from the most recent failed save, cleared by the next successful one.
+  Object? lastSaveError;
 
   Trip? get current {
     for (final trip in trips) {

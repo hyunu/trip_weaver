@@ -21,8 +21,7 @@ class HomeScreen extends StatelessWidget {
     if (controller.trips.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: FillOrScroll(
           children: [
             const PageHeader(title: '여행', titleKey: Key('screen-title-home')),
             const Expanded(child: Center(child: QuietEmpty(title: '여행이 없습니다.', message: '날짜와 도시를 정하면 이 목록에 나타납니다.', icon: CupertinoIcons.airplane))),
@@ -98,11 +97,11 @@ class _HeroCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpace.xxs),
-          Text(trip.title, key: const Key('hero-title'), style: AppType.title),
+          Text(displayTitle(trip.title), key: const Key('hero-title'), maxLines: 3, overflow: TextOverflow.ellipsis, style: AppType.title),
           const SizedBox(height: AppSpace.xxs),
           Text(formatRange(trip.start, trip.end), key: const Key('hero-period'), style: AppType.footnote),
           const SizedBox(height: 2),
-          Text('${trip.cities.map((city) => city.name).join(', ')} · 도시 ${trip.cities.length}곳', style: AppType.footnote),
+          Text(citySummary(trip), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
           if (trip.pendingLocalEdits > 0) ...[
             const SizedBox(height: 2),
             Text('이 기기에만 있는 수정 ${trip.pendingLocalEdits}건', style: AppType.footnote),
@@ -209,7 +208,8 @@ class _TripCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(trip.title, style: AppType.headline)),
+              Expanded(child: Text(displayTitle(trip.title), maxLines: 3, overflow: TextOverflow.ellipsis, style: AppType.headline)),
+              const SizedBox(width: AppSpace.xs),
               Text(statusLabel(trip.status), style: AppType.footnote),
               if (!tablet) const _Chevron(),
             ],
@@ -217,7 +217,7 @@ class _TripCard extends StatelessWidget {
           const SizedBox(height: AppSpace.xxs),
           Text(formatRange(trip.start, trip.end), style: AppType.footnote),
           const SizedBox(height: 2),
-          Text('${trip.cities.map((city) => city.name).join(', ')} · 도시 ${trip.cities.length}곳 · ${trip.countryCode}', style: AppType.footnote),
+          Text('${citySummary(trip)} · ${trip.countryCode}', maxLines: 2, overflow: TextOverflow.ellipsis, style: AppType.footnote),
           const SizedBox(height: 6),
           Text(nextScheduleLine(trip, controller.now), style: AppType.footnoteStrong),
           if (trip.pendingLocalEdits > 0) ...[
