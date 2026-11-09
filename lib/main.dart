@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'logic/geocoder.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/scope.dart';
-import 'logic/geocoder.dart';
+import 'state/connectivity.dart';
 import 'state/trip_controller.dart';
 import 'state/trip_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/live_clock.dart';
 
 class TripWeaveApp extends StatefulWidget {
-  const TripWeaveApp({super.key, this.now, this.controller});
+  const TripWeaveApp({
+    super.key,
+    this.now,
+    this.controller,
+    this.connectivityPort,
+    this.watchConnectivity,
+  });
 
   final DateTime? now;
   final TripController? controller;
+  final ConnectivityPort? connectivityPort;
+  final bool? watchConnectivity;
 
   @override
   State<TripWeaveApp> createState() => _TripWeaveAppState();
@@ -21,6 +30,7 @@ class TripWeaveApp extends StatefulWidget {
 
 class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver {
   TripController? controller;
+  TripConnectivity? _connectivity;
   late final bool owned;
   final GlobalKey<ScaffoldMessengerState> _messengerKey = GlobalKey<ScaffoldMessengerState>();
   String? _heardSaveSnack;
@@ -34,9 +44,18 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
     if (widget.controller != null) {
       controller = widget.controller;
       widget.controller!.addListener(_onController);
+      _attachConnectivity(widget.controller!);
     } else {
       _openStoredTrips();
     }
+  }
+
+  void _attachConnectivity(TripController ready) {
+    final watch = widget.watchConnectivity ?? widget.controller == null;
+    if (!watch) return;
+    _connectivity?.dispose();
+    final port = widget.connectivityPort ?? ConnectivityPlusPort();
+    _connectivity = TripConnectivity(controller: ready, port: port)..start();
   }
 
   Future<void> _openStoredTrips() async {
@@ -53,7 +72,10 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
       return;
     }
     next.addListener(_onController);
-    setState(() => controller = next);
+    setState(() {
+      controller = next;
+      _attachConnectivity(next);
+    });
     _onController();
   }
 
@@ -95,6 +117,7 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     controller?.removeListener(_onController);
+    _connectivity?.dispose();
     if (owned) controller?.dispose();
     super.dispose();
   }

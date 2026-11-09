@@ -29,6 +29,14 @@ void main() {
 
     expect(find.text('샘플 데이터입니다. 실제 장소 정보가 아닙니다.'), findsOneWidget);
     expect(find.text('오프라인. 저장된 데이터만 표시합니다.'), findsOneWidget);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: const Scaffold(body: MapTileNotice()),
+      ),
+    );
+    expect(find.text('지도 타일을 불러오지 못했습니다. 연결을 확인하세요.'), findsOneWidget);
+    expect(find.byKey(const Key('map-tile')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('sample-banner')), matching: find.byType(IconButton)), findsNothing);
     expect(find.text('장소를 고르세요.'), findsOneWidget);
 

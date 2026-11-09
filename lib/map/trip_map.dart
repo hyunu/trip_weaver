@@ -3,7 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../shell/scope.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chrome.dart';
 import 'camera.dart';
 import 'geo.dart';
 import 'osm_tiles.dart';
@@ -28,6 +30,7 @@ class TripMap extends StatefulWidget {
 class _TripMapState extends State<TripMap> {
   OsmStyleSource? _style;
   String _askedKey = '';
+  bool _tilesSettled = true;
   String _fitKey = '';
   GeoPoint? _center;
   double? _zoom;
@@ -69,9 +72,14 @@ class _TripMapState extends State<TripMap> {
     if (key == _askedKey) return;
     _askedKey = key;
     final missing = camera.tiles.where((tile) => !OsmTileStore.instance.memory.containsKey(tile.key)).toList();
-    if (missing.isEmpty) return;
+    if (missing.isEmpty) {
+      _tilesSettled = true;
+      return;
+    }
+    _tilesSettled = false;
     OsmTileStore.instance.load(missing, style.template).then((_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() => _tilesSettled = true);
     });
   }
 
@@ -99,6 +107,10 @@ class _TripMapState extends State<TripMap> {
         final route = orderedVisitPins(widget.pins);
         final routeOffsets = [for (final pin in route) spotFor[pin.id]!];
         final estimate = routeEstimateLabel(visitRouteMeters(widget.pins), route.length);
+        final store = OsmTileStore.instance;
+        final missingTiles = camera.tiles.any((tile) => !store.memory.containsKey(tile.key));
+        final offline = TripScope.of(context).offline;
+        final showTileNotice = _tilesSettled && missingTiles && (offline || store.failedKeys.isNotEmpty);
         return Semantics(
           container: true,
           label: mapSemanticLabel(widget.pins, estimate),
@@ -114,8 +126,21 @@ class _TripMapState extends State<TripMap> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    CustomPaint(painter: _TilePainter(camera: camera, images: OsmTileStore.instance.memory), size: size),
+                    CustomPaint(
+                      painter: _TilePainter(
+                        camera: camera,
+                        images: store.memory,
+                        failedKeys: store.failedKeys,
+                        labelGaps: showTileNotice,
+                      ),
+                      size: size,
+                    ),
                     CustomPaint(painter: _RoutePainter(routeOffsets), size: size),
+                    if (showTileNotice)
+                      const Align(
+                        alignment: Alignment.topCenter,
+                        child: SafeArea(child: MapTileNotice()),
+                      ),
                     for (final pin in paintOrder) _pin(pin, spotFor[pin.id]!, size),
                     Positioned(
                       left: 8,
@@ -295,10 +320,12 @@ class _RoutePainter extends CustomPainter {
 }
 
 class _TilePainter extends CustomPainter {
-  _TilePainter({required this.camera, required this.images});
+  _TilePainter({required this.camera, required this.images, required this.failedKeys, required this.labelGaps});
 
   final MapCamera camera;
   final Map<String, ui.Image> images;
+  final Set<String> failedKeys;
+  final bool labelGaps;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -308,9 +335,23 @@ class _TilePainter extends CustomPainter {
     for (final tile in camera.tiles) {
       final image = images[tile.key];
       final dest = Rect.fromLTWH(tile.x * tileSize - origin.dx, tile.y * tileSize - origin.dy, tileSize, tileSize);
-      if (image == null) continue;
+      if (image == null) {
+        canvas.drawRect(dest, Paint()..color = const Color(0xFFDDE5EA));
+        if (labelGaps) {
+          _drawTileHint(canvas, dest);
+        }
+        continue;
+      }
       canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), dest, Paint());
     }
+  }
+
+  void _drawTileHint(Canvas canvas, Rect dest) {
+    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center, maxLines: 2))
+      ..pushStyle(ui.TextStyle(color: const Color(0xFF5C6B73), fontSize: 11))
+      ..addText('연결 없음');
+    final paragraph = builder.build()..layout(ui.ParagraphConstraints(width: dest.width - 8));
+    canvas.drawParagraph(paragraph, Offset(dest.left + 4, dest.top + dest.height / 2 - paragraph.height / 2));
   }
 
   @override
