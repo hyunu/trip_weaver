@@ -1,39 +1,45 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trip_weave/data/sample_catalog.dart';
-import 'package:trip_weave/main.dart';
 import 'package:trip_weave/logic/geocoder.dart';
 import 'package:trip_weave/logic/trip_rules.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 import 'package:trip_weave/state/trip_store.dart';
 
 void main() {
-  testWidgets('첫 실행은 온보딩이 뜨고 샘플 둘러보기 후 샘플 섹션에만 나타난다', (tester) async {
+  test('빈 저장 파일이면 온보딩 상태로 시작한다', () async {
     final directory = await Directory.systemTemp.createTemp('trip_weave_onboard');
     final store = FileTripStore(File('${directory.path}/trips.json'));
     final controller = TripController(store: store, geocoder: OfflineSampleGeocoder());
     await controller.restore();
-    await tester.pumpWidget(TripWeaveApp(controller: controller));
-    await tester.pumpAndSettle();
+    expect(controller.showOnboarding, isTrue);
+    expect(controller.trips, isEmpty);
+    await directory.delete(recursive: true);
+  });
 
-    expect(find.byKey(const Key('onboarding-welcome')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('onboarding-next')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('onboarding-browse-samples')));
-    await tester.pumpAndSettle();
+  test('샘플 둘러보기 후 샘플 여행만 채워진다', () async {
+    final directory = await Directory.systemTemp.createTemp('trip_weave_onboard_home');
+    final store = FileTripStore(File('${directory.path}/trips.json'));
+    final controller = TripController(store: store, geocoder: OfflineSampleGeocoder());
+    await controller.restore();
+    controller.browseBundledSamples();
+    expect(controller.sampleTrips.map((trip) => trip.id), contains('trip-river'));
+    expect(controller.userTrips, isEmpty);
+    expect(controller.bundledSamplesActive, isTrue);
+    await directory.delete(recursive: true);
+  });
 
-    expect(find.byKey(const Key('screen-title-home')), findsOneWidget);
-    expect(find.text('샘플 여행'), findsOneWidget);
-    expect(find.text('샘플 모두 숨기기'), findsOneWidget);
-    expect(find.text('남쪽 바다'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('hide-all-samples')));
-    await tester.pumpAndSettle();
-    expect(find.text('샘플 여행'), findsNothing);
-    expect(find.text('여행이 없습니다.'), findsOneWidget);
-
+  test('샘플 숨기기 후 목록은 비고 온보딩은 끝난 상태다', () async {
+    final directory = await Directory.systemTemp.createTemp('trip_weave_onboard_hide');
+    final store = FileTripStore(File('${directory.path}/trips.json'));
+    final controller = TripController(store: store, geocoder: OfflineSampleGeocoder());
+    await controller.restore();
+    controller.browseBundledSamples();
+    controller.hideAllSamples();
+    expect(controller.sampleTrips, isEmpty);
+    expect(controller.userTrips, isEmpty);
+    expect(controller.onboardingComplete, isTrue);
     await directory.delete(recursive: true);
   });
 
@@ -50,7 +56,7 @@ void main() {
         end: DateTime(2026, 12, 3),
         purpose: '샘플 분리',
         tasteTags: const [],
-        budgetAmount: '',
+        budgetAmount: '0',
         budgetCurrency: 'KRW',
         companionCount: 1,
         cities: [

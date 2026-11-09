@@ -37,13 +37,14 @@ void main() {
 
   tearDown(() => directory.delete(recursive: true));
 
-  test('저장 파일이 없거나 비어 있으면 샘플 여행으로 시작한다', () async {
+  test('저장 파일이 없거나 비어 있으면 온보딩으로 시작한다', () async {
     final store = FileTripStore(file);
     expect(await store.read(), isNull);
     await file.writeAsString('   ');
     final controller = TripController(store: store);
     await controller.restore();
-    expect(controller.trips, isNotEmpty);
+    expect(controller.trips, isEmpty);
+    expect(controller.showOnboarding, isTrue);
   });
 
   test('깨진 저장 파일은 옆으로 옮겨 두고 샘플로 시작한다', () async {

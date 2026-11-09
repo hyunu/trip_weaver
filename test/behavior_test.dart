@@ -18,9 +18,9 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const Key('screen-title-home'))).style!.fontSize, 34);
     expect(tester.widget<Text>(find.byKey(const Key('hero-title'))).style!.fontSize, 22);
     expect(tester.widget<Text>(find.byKey(const Key('hero-period'))).style!.fontSize, 13);
-    expect(find.text('남쪽 바다'), findsOneWidget);
-    expect(find.text('2026.11.20 – 11.22'), findsOneWidget);
-    expect(find.text('적용된 일정 없음'), findsOneWidget);
+    expect(find.text('황푸와 외탄'), findsOneWidget);
+    expect(find.text('2026.11.6 – 11.11'), findsOneWidget);
+    expect(find.textContaining('다음 일정'), findsOneWidget);
     expect(find.text('샘플 데이터입니다. 실제 장소 정보가 아닙니다.'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('sample-banner')), matching: find.byType(IconButton)), findsNothing);
 

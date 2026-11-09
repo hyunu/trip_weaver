@@ -140,7 +140,7 @@ TripSnapshot decodeTripSnapshot(String encoded) {
       : trips.any((trip) => trip.dataOriginMock);
   return TripSnapshot(
     trips: trips,
-    currentTripId: current is String && ids.contains(current) ? current : null,
+    currentTripId: current is String && (ids.contains(current) || bundledSamplesActive) ? current : null,
     nextSeq: math.max(seq is int ? seq : 100, _seqAfter(trips)),
     journal: version >= 2 ? _journalFromJson(raw['journal']) : const {},
     exclusions: version >= 2 ? _exclusionsFromJson(raw['exclusions']) : const {},

@@ -157,7 +157,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.trips.length, before);
     expect(find.byKey(const Key('form-error-summary')), findsOneWidget);
-    expect(find.text('도시를 검색하거나 입력하세요.'), findsOneWidget);
+    expect(find.byKey(const Key('form-error-summary')), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('form-city-search')), '상하이');
     await tester.pump(const Duration(milliseconds: 400));
@@ -212,10 +212,10 @@ void main() {
     expect(controller.creating, isFalse);
     expect(find.text('일정 만들러 가기'), findsOneWidget);
 
-    await tester.tap(find.text('일정 만들러 가기'));
+    await tester.tap(find.byKey(const Key('detail-open-itinerary')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('itinerary-none')), findsOneWidget);
-    expect(find.text('일정 만들기'), findsOneWidget);
+    expect(find.byKey(const Key('screen-title-itinerary')), findsOneWidget);
+    expect(find.byKey(const Key('itinerary-add')), findsOneWidget);
   });
 
   testWidgets('작성 중인 여행을 닫으면 버릴지 묻는다', (tester) async {

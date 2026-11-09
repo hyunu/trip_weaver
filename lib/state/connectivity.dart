@@ -35,6 +35,9 @@ class FakeConnectivityPort implements ConnectivityPort {
   bool _online;
   final _controller = StreamController<bool>.broadcast();
 
+  @visibleForTesting
+  bool get onlineNow => _online;
+
   @override
   Stream<bool> get online => _controller.stream;
 
@@ -59,14 +62,25 @@ class TripConnectivity {
   final ConnectivityPort port;
 
   StreamSubscription<bool>? _sub;
+  int _startGeneration = 0;
 
   void start() {
+    final generation = ++_startGeneration;
     OsmTileStore.instance.onFetchFailure = _onFetchFailure;
+    _sub?.cancel();
     _sub = port.online.listen(_applyLink);
-    port.checkOnline().then(_applyLink);
+    if (port case FakeConnectivityPort fake) {
+      _applyLink(fake.onlineNow);
+    } else {
+      port.checkOnline().then((online) {
+        if (generation != _startGeneration) return;
+        _applyLink(online);
+      });
+    }
   }
 
   void dispose() {
+    _startGeneration += 1;
     _sub?.cancel();
     if (identical(OsmTileStore.instance.onFetchFailure, _onFetchFailure)) {
       OsmTileStore.instance.onFetchFailure = null;

@@ -208,7 +208,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
           style: AppType.body,
           textInputAction: TextInputAction.search,
           decoration: AppFields.decoration('도시 이름 (예: 상하이, 부산)'),
-          onChanged: _queueCitySearch,
+          onChanged: (value) {
+            if (value.trim().isNotEmpty) _edit(() {});
+            _queueCitySearch(value);
+          },
           onSubmitted: (_) => _searchCreateCities(citySearchController.text),
         ),
         if (errors['city'] != null) _error(errors['city']!),

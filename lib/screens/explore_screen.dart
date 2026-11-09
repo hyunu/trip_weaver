@@ -79,7 +79,6 @@ class _ExploreHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = TripScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

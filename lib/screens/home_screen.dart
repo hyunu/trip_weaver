@@ -45,7 +45,12 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 const Expanded(child: PageHeader(title: '여행', titleKey: Key('screen-title-home'))),
-                AppButton(key: const Key('create-trip'), label: '새 여행', filled: false, onPressed: controller.openCreate),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppButton(key: const Key('create-trip'), label: '새 여행', filled: false, onPressed: controller.openCreate),
+                  ),
+                ),
               ],
             ),
             StatusBanners(sample: controller.homeShowsSample, offline: controller.offline),
@@ -54,10 +59,15 @@ class HomeScreen extends StatelessWidget {
               Row(
                 children: [
                   const Expanded(child: SectionLabel('샘플 여행')),
-                  TextButton(
-                    key: const Key('hide-all-samples'),
-                    onPressed: controller.hideAllSamples,
-                    child: const Text('샘플 모두 숨기기'),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        key: const Key('hide-all-samples'),
+                        onPressed: controller.hideAllSamples,
+                        child: const Text('샘플 모두 숨기기'),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -75,7 +85,7 @@ class HomeScreen extends StatelessWidget {
 List<Widget> _TripSections({required List<Trip> trips, required bool tablet, required DateTime now, bool sampleStyle = false}) {
   final ongoing = trips.where((trip) => isOngoing(trip, now)).toList();
   final upcoming = trips.where((trip) => !isOngoing(trip, now) && !isPast(trip, now)).toList();
-  final nextTrip = ongoing.isEmpty && !sampleStyle ? nearestUpcomingTrip(trips, now) : null;
+  final nextTrip = ongoing.isEmpty ? nearestUpcomingTrip(trips, now) : null;
   final past = trips.where((trip) => isPast(trip, now)).toList();
   return [
     if (nextTrip != null) _NextTripCountdownCard(trip: nextTrip, tablet: tablet),

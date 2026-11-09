@@ -5,7 +5,6 @@ import '../model/models.dart';
 import '../shell/scope.dart';
 import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
-import 'chrome.dart';
 
 enum _AddKind { place, memo, transport, lodging }
 

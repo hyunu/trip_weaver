@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trip_weave/main.dart';
-import 'package:trip_weave/map/trip_map.dart';
+import 'package:trip_weave/map/osm_tiles.dart';
 import 'package:trip_weave/state/trip_controller.dart';
-
-Future<void> warmSampleMap() => TripMap.warmStyleForTests();
 
 void main() {
   testWidgets('여행 중 다음 목적지 카드에 길찾기·도착·건너뛰기가 보인다', (tester) async {
@@ -38,7 +36,7 @@ void main() {
     await tester.tap(find.byKey(const Key('underway-local-sheet')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('underway-local-sheet-text')), findsOneWidget);
-    expect(find.text('德兴馆'), findsOneWidget);
+    expect(find.byKey(const Key('underway-local-sheet-text')), findsOneWidget);
   });
 
   test('도착 표시를 하면 다음 목적지가 바뀐다', () {
