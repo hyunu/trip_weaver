@@ -8,6 +8,7 @@ import '../logic/schedule.dart';
 import '../model/journal.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
+import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
 
@@ -211,7 +212,14 @@ class _StorySection extends StatelessWidget {
         children: [
           const Text('하루 이야기', style: AppType.headline),
           const SizedBox(height: 2),
-          Text(saved == null ? '작성된 이야기가 없습니다.' : '이 기기에만 저장된 이야기', style: AppType.footnote),
+          if (saved != null) ...[
+            Text(saved, style: AppType.body),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            saved == null ? '작성된 이야기가 없습니다.' : '이 기기에 저장된 이야기',
+            style: AppType.footnote,
+          ),
           const SizedBox(height: 8),
           _StoryEditor(
             key: ValueKey('${trip.id}-${journalDayKey(controller.journalDate)}'),
@@ -234,6 +242,7 @@ class _StoryEditor extends StatefulWidget {
 
 class _StoryEditorState extends State<_StoryEditor> {
   late final TextEditingController text = TextEditingController(text: widget.initial);
+  String? _savedHint;
 
   @override
   void dispose() {
@@ -261,12 +270,25 @@ class _StoryEditorState extends State<_StoryEditor> {
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 8),
+        if (_savedHint != null) ...[
+          Text(_savedHint!, key: const Key('journal-saved-hint'), style: AppType.footnoteStrong),
+          const SizedBox(height: 4),
+        ],
         Align(
           alignment: Alignment.centerRight,
           child: AppButton(
             key: const Key('save-journal'),
             label: '저장',
-            onPressed: unchanged ? null : () => controller.saveJournal(text.text),
+            onPressed: unchanged
+                ? null
+                : () async {
+                    controller.saveJournal(text.text);
+                    await controller.persistenceSettled;
+                    if (!context.mounted) return;
+                    setState(() {
+                      _savedHint = controller.saveStatus == SaveStatus.failed ? null : '저장했습니다.';
+                    });
+                  },
           ),
         ),
       ],
