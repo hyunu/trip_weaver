@@ -25,17 +25,19 @@ class ItineraryScreen extends StatelessWidget {
     final trip = controller.current;
     if (trip == null) return const NeedTrip(title: '일정', titleKey: Key('screen-title-itinerary'));
     final header = _ItineraryHeader(trip: trip);
+    final reviewing = controller.reviewingProposal && trip.proposalDays != null;
     if (!tablet) {
       return LayoutBuilder(
         builder: (context, constraints) {
           return Column(
             children: [
               ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: constraints.maxHeight / 2),
+                constraints: BoxConstraints(maxHeight: constraints.maxHeight * (reviewing ? 0.35 : 0.5)),
                 child: SingleChildScrollView(primary: false, child: header),
               ),
               Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 8), child: _DateChips(trip: trip)),
               Expanded(child: _DayPane(trip: trip, tablet: false)),
+              if (reviewing) const _ProposalActions(),
             ],
           );
         },
@@ -61,6 +63,7 @@ class ItineraryScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (reviewing) const _ProposalActions(),
         ],
       );
     }
@@ -78,6 +81,7 @@ class ItineraryScreen extends StatelessWidget {
             ],
           ),
         ),
+        if (reviewing) const _ProposalActions(),
       ],
     );
   }
@@ -229,20 +233,33 @@ class _ItineraryHeader extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: AppSpace.xs),
-                  Row(
-                    children: [
-                      Expanded(child: AppButton(key: const Key('apply-proposal'), label: '이 일정 적용', onPressed: controller.applyProposal)),
-                      const SizedBox(width: AppSpace.xs),
-                      Expanded(
-                        child: AppButton(key: const Key('discard-proposal'), label: '제안 버리기', filled: false, destructive: true, onPressed: () => _confirmDiscard(context, controller)),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProposalActions extends StatelessWidget {
+  const _ProposalActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TripScope.of(context);
+    return Container(
+      key: const Key('proposal-actions'),
+      padding: const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.xs, AppSpace.md, AppSpace.xs),
+      decoration: const BoxDecoration(color: AppColors.card, border: Border(top: BorderSide(color: AppColors.line))),
+      child: Row(
+        children: [
+          Expanded(child: AppButton(key: const Key('apply-proposal'), label: '이 일정 적용', onPressed: controller.applyProposal)),
+          const SizedBox(width: AppSpace.xs),
+          Expanded(
+            child: AppButton(key: const Key('discard-proposal'), label: '제안 버리기', filled: false, destructive: true, onPressed: () => _confirmDiscard(context, controller)),
+          ),
         ],
       ),
     );

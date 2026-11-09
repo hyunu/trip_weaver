@@ -89,6 +89,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('작은 폰에서 탐색 화면이 넘치지 않는다', (tester) async {
+    await tester.runAsync(warmSampleMap);
+    await _setView(tester, const Size(320, 568));
+    final controller = TripController()..selectTab(1);
+    await tester.pumpWidget(TripWeaveApp(controller: controller));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('explore-scroll')), findsOneWidget);
+    expect(find.byKey(const Key('search-city')), findsNothing);
+    expect(find.text('이 도시에서 찾기'), findsNothing);
+  });
+
   testWidgets('작은 폰에서 위치 다시 고르기 후보가 넘치지 않는다', (tester) async {
     await tester.runAsync(warmSampleMap);
     await _setView(tester, const Size(320, 568));
@@ -324,6 +336,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('itinerary-scroll')), findsOneWidget);
+      if (entry.key.contains('제안')) {
+        expect(find.byKey(const Key('proposal-actions')), findsOneWidget);
+      }
     });
   }
 
