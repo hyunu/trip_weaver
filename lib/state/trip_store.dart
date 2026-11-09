@@ -4,14 +4,35 @@ import 'dart:math' as math;
 
 import 'package:path_provider/path_provider.dart';
 
+import '../logic/propose.dart';
 import '../model/models.dart';
 
+const tripSnapshotVersion = 2;
+
 class TripSnapshot {
-  const TripSnapshot({required this.trips, required this.currentTripId, required this.nextSeq});
+  const TripSnapshot({
+    required this.trips,
+    required this.currentTripId,
+    required this.nextSeq,
+    this.journal = const {},
+    this.exclusions = const {},
+  });
 
   final List<Trip> trips;
   final String? currentTripId;
   final int nextSeq;
+  final Map<String, Map<String, String>> journal;
+  final Map<String, ProposalExclusions> exclusions;
+}
+
+class TripStoreCorruptException implements Exception {
+  const TripStoreCorruptException(this.cause, {this.backupPath});
+
+  final Object cause;
+  final String? backupPath;
+
+  @override
+  String toString() => 'TripStoreCorruptException($cause, backup: $backupPath)';
 }
 
 abstract class TripStore {
@@ -36,18 +57,18 @@ class FileTripStore implements TripStore {
   /// next save does not overwrite the only copy of the user's data.
   @override
   Future<TripSnapshot?> read() async {
+    if (!file.existsSync()) return null;
     try {
-      if (!file.existsSync()) return null;
       final text = await file.readAsString();
       if (text.trim().isEmpty) return null;
       return decodeTripSnapshot(text);
-    } on Object {
+    } on Object catch (error) {
       try {
-        await file.rename(corruptCopy.path);
+        if (file.existsSync()) await file.rename(corruptCopy.path);
       } on Object {
         // Leave the file in place; the next write replaces it.
       }
-      return null;
+      throw TripStoreCorruptException(error, backupPath: corruptCopy.existsSync() ? corruptCopy.path : null);
     }
   }
 
@@ -62,10 +83,18 @@ class FileTripStore implements TripStore {
 
 String encodeTripSnapshot(TripSnapshot snapshot) {
   return jsonEncode({
-    'version': 1,
+    'version': tripSnapshotVersion,
     'currentTripId': snapshot.currentTripId,
     'nextSeq': snapshot.nextSeq,
     'trips': snapshot.trips.map(_tripToJson).toList(),
+    'journal': snapshot.journal,
+    'exclusions': snapshot.exclusions.map(
+      (tripId, exclusions) => MapEntry(tripId, {
+        'itemIds': exclusions.itemIds.toList(),
+        'placeIds': exclusions.placeIds.toList(),
+        'slots': exclusions.slots.toList(),
+      }),
+    ),
   });
 }
 
@@ -86,10 +115,13 @@ TripSnapshot decodeTripSnapshot(String encoded) {
   }
   final seq = raw['nextSeq'];
   final current = raw['currentTripId'];
+  final version = raw['version'] is int ? raw['version'] as int : 1;
   return TripSnapshot(
     trips: trips,
     currentTripId: current is String && ids.contains(current) ? current : null,
     nextSeq: math.max(seq is int ? seq : 100, _seqAfter(trips)),
+    journal: version >= 2 ? _journalFromJson(raw['journal']) : const {},
+    exclusions: version >= 2 ? _exclusionsFromJson(raw['exclusions']) : const {},
   );
 }
 
@@ -109,6 +141,37 @@ int _seqAfter(List<Trip> trips) {
     }
   }
   return next;
+}
+
+Map<String, Map<String, String>> _journalFromJson(Object? raw) {
+  final result = <String, Map<String, String>>{};
+  if (raw is! Map) return result;
+  for (final trip in raw.entries) {
+    final days = trip.value;
+    if (days is! Map) continue;
+    final notes = <String, String>{
+      for (final day in days.entries)
+        if (day.value is String && (day.value as String).isNotEmpty) '${day.key}': day.value as String,
+    };
+    if (notes.isNotEmpty) result['${trip.key}'] = notes;
+  }
+  return result;
+}
+
+Map<String, ProposalExclusions> _exclusionsFromJson(Object? raw) {
+  final result = <String, ProposalExclusions>{};
+  if (raw is! Map) return result;
+  for (final entry in raw.entries) {
+    final value = entry.value;
+    if (value is! Map) continue;
+    final exclusions = ProposalExclusions(
+      itemIds: _strings(value['itemIds']).toSet(),
+      placeIds: _strings(value['placeIds']).toSet(),
+      slots: _strings(value['slots']).toSet(),
+    );
+    if (!exclusions.isEmpty) result['${entry.key}'] = exclusions;
+  }
+  return result;
 }
 
 Map<String, Object?> _tripToJson(Trip trip) {

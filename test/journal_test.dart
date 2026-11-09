@@ -51,7 +51,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.journalText(), '외탄을 걸었다');
-    expect(find.text('이 기기에만 저장된 이야기'), findsOneWidget);
+    expect(find.text('이 기기에 저장된 이야기'), findsOneWidget);
+    expect(find.text('외탄을 걸었다'), findsWidgets);
+    expect(find.byKey(const Key('journal-saved-hint')), findsOneWidget);
     expect(find.text('기록 있음'), findsWidgets);
 
     await tester.ensureVisible(find.text('11.9'));

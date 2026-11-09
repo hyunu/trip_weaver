@@ -114,11 +114,12 @@ class _HeroCard extends StatelessWidget {
           else ...[
             ScheduleBlock(item: next),
             const SizedBox(height: AppSpace.xs),
-            Text(
-              '기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)}${trip.dataOriginMock ? ' · 샘플' : ''}',
-              style: AppType.footnote,
-            ),
-            const SizedBox(height: AppSpace.xs),
+            if (controller.showReferenceClock(trip))
+              Text(
+                '기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)}${trip.dataOriginMock ? ' · 샘플' : ''}',
+                style: AppType.footnote,
+              ),
+            if (controller.showReferenceClock(trip)) const SizedBox(height: AppSpace.xs),
             AppButton(
               key: const Key('hero-open-itinerary'),
               label: '일정에서 보기',

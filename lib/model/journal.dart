@@ -27,6 +27,19 @@ class JournalBook {
     }
     return true;
   }
+
+  Map<String, Map<String, String>> export() => {
+    for (final entry in _byTrip.entries) entry.key: Map.of(entry.value),
+  };
+
+  void replaceAll(Map<String, Map<String, String>> notes) {
+    _byTrip
+      ..clear()
+      ..addAll({
+        for (final entry in notes.entries)
+          if (entry.value.isNotEmpty) entry.key: Map.of(entry.value),
+      });
+  }
 }
 
 String journalDayKey(DateTime value) {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -110,4 +111,98 @@ void main() {
     expect(isCurrentLocation(legacyCity, candidatesForCity(legacyCity.name).first), isTrue);
     await directory.delete(recursive: true);
   });
+
+  test('기록과 제안 제외는 v2 스냅샷으로 남는다', () async {
+    final catalog = buildSampleCatalog();
+    final directory = await Directory.systemTemp.createTemp('trip_weave_v2');
+    final store = FileTripStore(File('${directory.path}/trips.json'));
+    final first = TripController(catalog: catalog, store: store);
+    first.selectTrip('trip-river');
+    first.saveJournal('낮에 외탄을 걸었다.');
+    first.startReview();
+    final proposal = first.current!.proposalDays!;
+    final item = proposal.first.items.firstWhere((i) => i.kind != ItemKind.move);
+    first.deleteItem(item.id);
+    await first.persistenceSettled;
+    final encoded = await File('${directory.path}/trips.json').readAsString();
+    expect(encoded, contains('"version":2'));
+    expect(encoded, contains('낮에 외탄을 걸었다.'));
+
+    final reloaded = TripController(catalog: catalog, store: store);
+    await reloaded.restore();
+    expect(reloaded.journalText(), '낮에 외탄을 걸었다.');
+    expect(reloaded.excludedCount(reloaded.current!), greaterThan(0));
+
+    await directory.delete(recursive: true);
+  });
+
+  test('v1 파일은 그대로 읽고 journal은 비어 있다', () async {
+    final catalog = buildSampleCatalog();
+    final directory = await Directory.systemTemp.createTemp('trip_weave_v1');
+    final store = FileTripStore(File('${directory.path}/trips.json'));
+    final map = jsonDecode(
+      encodeTripSnapshot(TripSnapshot(trips: catalog.trips, currentTripId: 'trip-south', nextSeq: 120)),
+    ) as Map<String, dynamic>;
+    map['version'] = 1;
+    map.remove('journal');
+    map.remove('exclusions');
+    await File('${directory.path}/trips.json').writeAsString(jsonEncode(map));
+
+    final controller = TripController(catalog: buildSampleCatalog(), store: store);
+    await controller.restore();
+    expect(controller.trips.length, catalog.trips.length);
+    expect(controller.journalText(), isNull);
+
+    await directory.delete(recursive: true);
+  });
+
+  test('손상된 저장 파일은 백업하고 샘플로 시작한다', () async {
+    final catalog = buildSampleCatalog();
+    final directory = await Directory.systemTemp.createTemp('trip_weave_bad');
+    final file = File('${directory.path}/trips.json');
+    final store = FileTripStore(file);
+    await file.writeAsString('{not json');
+    final controller = TripController(catalog: catalog, store: store);
+    await controller.restore();
+    expect(controller.restoreNotice, isNotNull);
+    expect(controller.trips.any((t) => t.id == 'trip-river'), isTrue);
+    expect(File('${directory.path}/trips.json.corrupt').existsSync(), isTrue);
+
+    await directory.delete(recursive: true);
+  });
+
+  test('저장 실패 시 다시 시도할 수 있다', () async {
+    final catalog = buildSampleCatalog();
+    final directory = await Directory.systemTemp.createTemp('trip_weave_fail');
+    final inner = FileTripStore(File('${directory.path}/trips.json'));
+    final store = _FailingTripStore(inner);
+    store.failWrites = true;
+    final controller = TripController(catalog: catalog, store: store);
+    controller.setDecision('wharf', Decision.excluded);
+    await controller.persistenceSettled;
+    expect(controller.saveStatus, SaveStatus.failed);
+    expect(controller.lastSaveSnack, isNotNull);
+
+    store.failWrites = false;
+    await controller.retrySave();
+    expect(controller.saveStatus, SaveStatus.saved);
+
+    await directory.delete(recursive: true);
+  });
+}
+
+class _FailingTripStore implements TripStore {
+  _FailingTripStore(this.inner);
+
+  final TripStore inner;
+  var failWrites = false;
+
+  @override
+  Future<TripSnapshot?> read() => inner.read();
+
+  @override
+  Future<void> write(String encoded) async {
+    if (failWrites) throw const FileSystemException('write blocked');
+    await inner.write(encoded);
+  }
 }

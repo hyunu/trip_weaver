@@ -137,7 +137,8 @@ class _DestinationColumn extends StatelessWidget {
       key: const Key('underway-steps'),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)}${trip.dataOriginMock ? ' · 샘플' : ''}', style: AppType.footnote),
+        if (controller.showReferenceClock(trip))
+          Text('기준 시각 ${formatMonthDay(controller.now)} ${formatHm(controller.now)}${trip.dataOriginMock ? ' · 샘플' : ''}', style: AppType.footnote),
         if (progress != null && progress.total > 0) ...[
           const SizedBox(height: 4),
           Text('오늘 방문 ${progress.total}곳 중 ${progress.done}곳 끝남', key: const Key('underway-progress'), style: AppType.footnoteStrong),

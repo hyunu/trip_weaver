@@ -56,9 +56,9 @@ void main() {
     expect(store.corruptCopy.readAsStringSync(), startsWith('{"trips"'));
 
     await file.writeAsString('[1, 2, 3]');
-    expect(await store.read(), isNull);
+    expect(store.read(), throwsA(isA<TripStoreCorruptException>()));
     await file.writeAsString('{"version": 1}');
-    expect(await store.read(), isNull);
+    expect(store.read(), throwsA(isA<TripStoreCorruptException>()));
   });
 
   test('날짜나 id가 깨진 여행만 빼고 나머지는 읽는다', () {

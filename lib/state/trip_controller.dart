@@ -10,10 +10,20 @@ import '../model/journal.dart';
 import '../model/models.dart';
 import 'trip_store.dart';
 
+/// Sample catalog anchor time for tests and capture fixtures.
+final DateTime sampleNow = DateTime(2026, 11, 8, 10, 40);
+
+enum SaveStatus { idle, saving, saved, failed }
+
 class TripController extends ChangeNotifier {
+  /// In widget tests, pins [now] when no explicit [now] is passed.
+  @visibleForTesting
+  static DateTime? debugFixedNow;
+
   TripController({DateTime? now, SampleCatalog? catalog, TripStore? store})
-      : now = now ?? DateTime(2026, 11, 8, 10, 40),
-        _store = store {
+    : _explicitNow = now,
+      _store = store {
+    _now = _readNow();
     final seed = catalog ?? buildSampleCatalog();
     trips = seed.trips;
     places = seed.places;
@@ -30,7 +40,32 @@ class TripController extends ChangeNotifier {
     }
   }
 
-  final DateTime now;
+  final DateTime? _explicitNow;
+  late DateTime _now;
+
+  bool get fixedClock => _explicitNow != null || debugFixedNow != null;
+
+  DateTime get now => _now;
+
+  SaveStatus saveStatus = SaveStatus.idle;
+  String? saveError;
+  String? restoreNotice;
+  String? lastSaveSnack;
+
+  DateTime _readNow() => _explicitNow ?? debugFixedNow ?? DateTime.now();
+
+  void refreshClock() {
+    if (fixedClock) return;
+    final fresh = DateTime.now();
+    if (_sameMinute(fresh, _now)) return;
+    _now = fresh;
+    super.notifyListeners();
+  }
+
+  bool _sameMinute(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour && a.minute == b.minute;
+
+  bool showReferenceClock([Trip? trip]) => fixedClock || (trip?.dataOriginMock ?? false);
   late List<Trip> trips;
   late List<Place> places;
   String? currentTripId;
@@ -68,42 +103,96 @@ class TripController extends ChangeNotifier {
   Future<void> restore() async {
     final store = _store;
     if (store == null) return;
-    TripSnapshot? snapshot;
     try {
-      snapshot = await store.read();
+      final snapshot = await store.read();
+      if (snapshot == null) return;
+      _applySnapshot(snapshot);
+    } on TripStoreCorruptException catch (_) {
+      restoreNotice = '저장 파일을 읽지 못해 백업해 두었습니다. 샘플 데이터로 다시 시작합니다.';
     } on Object {
-      snapshot = null;
+      // Unreadable store; keep bundled sample trips.
     }
-    if (snapshot == null) return;
+    super.notifyListeners();
+  }
+
+  void _applySnapshot(TripSnapshot snapshot) {
     for (final trip in snapshot.trips) {
       if (_sampleTripIds.contains(trip.id)) trip.dataOriginMock = true;
     }
     trips = snapshot.trips;
     currentTripId = snapshot.currentTripId;
     if (snapshot.nextSeq > _seq) _seq = snapshot.nextSeq;
+    journal.replaceAll(snapshot.journal);
+    _proposalExclusions
+      ..clear()
+      ..addAll(snapshot.exclusions);
     final trip = current;
     if (trip == null || trip.cities.isEmpty) {
       selectedCityId = null;
     } else if (selectedCityId == null || trip.cities.every((city) => city.id != selectedCityId)) {
       selectedCityId = trip.cities.firstWhere((city) => city.coordinateConfirmed, orElse: () => trip.cities.first).id;
     }
-    super.notifyListeners();
+  }
+
+  TripSnapshot _snapshot() => TripSnapshot(
+    trips: trips,
+    currentTripId: currentTripId,
+    nextSeq: _seq,
+    journal: journal.export(),
+    exclusions: Map<String, ProposalExclusions>.from(_proposalExclusions),
+  );
+
+  void clearRestoreNotice() {
+    restoreNotice = null;
+  }
+
+  void clearSaveSnack() {
+    lastSaveSnack = null;
   }
 
   @override
   void notifyListeners() {
     super.notifyListeners();
+    _enqueueSave();
+  }
+
+  void _enqueueSave() {
     final store = _store;
     if (store == null) return;
-    final encoded = encodeTripSnapshot(TripSnapshot(trips: trips, currentTripId: currentTripId, nextSeq: _seq));
-    _saveChain = _saveChain.then((_) async {
+    final encoded = encodeTripSnapshot(_snapshot());
+    _saveChain = _saveChain.catchError((Object _) {}).then((_) async {
       try {
         await store.write(encoded);
+        saveStatus = SaveStatus.saved;
+        saveError = null;
         lastSaveError = null;
       } on Object catch (error) {
+        saveStatus = SaveStatus.failed;
+        saveError = '$error';
         lastSaveError = error;
+        lastSaveSnack = '여행 데이터를 저장하지 못했습니다. 다시 시도해 주세요.';
+        super.notifyListeners();
       }
     });
+  }
+
+  Future<void> retrySave() async {
+    final store = _store;
+    if (store == null) return;
+    try {
+      await store.write(encodeTripSnapshot(_snapshot()));
+      saveStatus = SaveStatus.saved;
+      saveError = null;
+      lastSaveError = null;
+      lastSaveSnack = null;
+      super.notifyListeners();
+    } on Object catch (error) {
+      saveStatus = SaveStatus.failed;
+      saveError = '$error';
+      lastSaveError = error;
+      lastSaveSnack = '여행 데이터를 저장하지 못했습니다. 다시 시도해 주세요.';
+      super.notifyListeners();
+    }
   }
 
   /// The error from the most recent failed save, cleared by the next successful one.
