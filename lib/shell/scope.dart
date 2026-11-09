@@ -5,10 +5,15 @@ import '../state/trip_controller.dart';
 class TripScope extends InheritedNotifier<TripController> {
   const TripScope({super.key, required TripController controller, required super.child}) : super(notifier: controller);
 
-  static TripController of(BuildContext context) {
+  static TripController? maybeOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<TripScope>();
-    assert(scope != null, 'TripScope가 없습니다.');
-    return scope!.notifier!;
+    return scope?.notifier;
+  }
+
+  static TripController of(BuildContext context) {
+    final controller = maybeOf(context);
+    assert(controller != null, 'TripScope가 없습니다.');
+    return controller!;
   }
 }
 

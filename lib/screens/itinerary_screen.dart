@@ -415,7 +415,7 @@ class _Timeline extends StatelessWidget {
                       buildDefaultDragHandles: false,
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       itemCount: items.length,
-                      onReorder: controller.reorderItineraryItem,
+                      onReorderItem: controller.reorderItineraryItem,
                       proxyDecorator: (child, index, animation) => Material(elevation: 4, color: Colors.transparent, child: child),
                       itemBuilder: (context, index) {
                         final item = items[index];

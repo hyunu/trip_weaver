@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trip_weave/map/osm_tiles.dart';
 import 'package:trip_weave/main.dart';
@@ -6,7 +5,7 @@ import 'package:trip_weave/state/connectivity.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 
 void main() {
-  test('가짜 연결 포트는 오프라인 상태를 컨트롤러에 반영한다', () {
+  test('가짜 연결 포트는 오프라인 상태를 컨트롤러에 반영한다', () async {
     final controller = TripController();
     final port = FakeConnectivityPort(online: true);
     final watch = TripConnectivity(controller: controller, port: port)..start();
@@ -14,8 +13,10 @@ void main() {
 
     expect(controller.offline, isFalse);
     port.setOnline(false);
+    await Future<void>.delayed(Duration.zero);
     expect(controller.offline, isTrue);
     port.setOnline(true);
+    await Future<void>.delayed(Duration.zero);
     expect(controller.offline, isFalse);
   });
 
@@ -31,7 +32,7 @@ void main() {
 
   test('앱 소유 컨트롤러만 기본으로 연결 감시를 켠다', () {
     expect(const TripWeaveApp().watchConnectivity, isNull);
-    expect(const TripWeaveApp(controller: TripController()).watchConnectivity, isNull);
+    expect(TripWeaveApp(controller: TripController()).watchConnectivity, isNull);
     expect(const TripWeaveApp(watchConnectivity: true).watchConnectivity, isTrue);
   });
 

@@ -76,6 +76,15 @@ class _TripMapState extends State<TripMap> {
       _tilesSettled = true;
       return;
     }
+    final offline = TripScope.maybeOf(context)?.offline ?? false;
+    if (offline) {
+      final store = OsmTileStore.instance;
+      for (final tile in missing) {
+        store.failedKeys.add(tile.key);
+      }
+      _tilesSettled = true;
+      return;
+    }
     _tilesSettled = false;
     OsmTileStore.instance.load(missing, style.template).then((_) {
       if (!mounted) return;
@@ -109,7 +118,7 @@ class _TripMapState extends State<TripMap> {
         final estimate = routeEstimateLabel(visitRouteMeters(widget.pins), route.length);
         final store = OsmTileStore.instance;
         final missingTiles = camera.tiles.any((tile) => !store.memory.containsKey(tile.key));
-        final offline = TripScope.of(context).offline;
+        final offline = TripScope.maybeOf(context)?.offline ?? false;
         final showTileNotice = _tilesSettled && missingTiles && (offline || store.failedKeys.isNotEmpty);
         return Semantics(
           container: true,

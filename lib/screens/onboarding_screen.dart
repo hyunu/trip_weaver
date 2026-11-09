@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../shell/scope.dart';
 import '../theme/app_theme.dart';
-import '../widgets/chrome.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});

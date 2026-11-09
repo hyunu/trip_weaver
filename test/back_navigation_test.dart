@@ -83,7 +83,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('create-trip')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('form-title')), '임시');
+    await tester.enterText(find.byKey(const Key('form-city-search')), '임시');
     await _systemBack(tester);
     expect(find.text('작성 중인 여행을 버릴까요?'), findsOneWidget);
     expect(controller.creating, isTrue);

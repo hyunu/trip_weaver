@@ -144,7 +144,8 @@ class TripController extends ChangeNotifier {
       _installBundledCatalog(_bundledCatalog, markActive: true);
       onboardingComplete = true;
     } on Object {
-      // Unreadable store; keep bundled sample trips.
+      _installBundledCatalog(_bundledCatalog, markActive: true);
+      onboardingComplete = true;
     }
     super.notifyListeners();
   }
@@ -210,6 +211,9 @@ class TripController extends ChangeNotifier {
       for (final trip in trips) {
         if (trip.id == currentTripId && !trip.dataOriginMock) return currentTripId;
       }
+      if (bundledSamplesActive && trips.any((trip) => trip.id == currentTripId && trip.dataOriginMock)) {
+        return currentTripId;
+      }
     }
     for (final trip in trips) {
       if (!trip.dataOriginMock) return trip.id;
@@ -217,8 +221,17 @@ class TripController extends ChangeNotifier {
     return null;
   }
 
+  List<Trip> _persistedTrips() {
+    final saved = <Trip>[...trips.where((trip) => !trip.dataOriginMock)];
+    for (final trip in trips.where((trip) => trip.dataOriginMock)) {
+      final relocated = trip.cities.any((city) => city.coordinateCandidateId != null);
+      if (relocated) saved.add(trip);
+    }
+    return saved;
+  }
+
   TripSnapshot _snapshot() => TripSnapshot(
-    trips: trips.where((trip) => !trip.dataOriginMock).toList(),
+    trips: _persistedTrips(),
     currentTripId: _persistedCurrentTripId(),
     nextSeq: _seq,
     journal: journal.export(),
