@@ -38,7 +38,7 @@ class ScheduleBlock extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _KindChip(label: kindLabel(item.kind), foreground: tone.foreground, background: tone.chip),
-                  if (proposal && !item.locked) ...[
+                  if (proposal) ...[
                     const SizedBox(width: AppSpace.xs),
                     const _KindChip(label: '제안', foreground: AppColors.warningFg, background: AppColors.markerBg),
                   ],
