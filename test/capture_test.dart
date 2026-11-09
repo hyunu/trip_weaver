@@ -9,7 +9,7 @@ import 'package:trip_weave/main.dart';
 import 'package:trip_weave/map/osm_tiles.dart';
 import 'package:trip_weave/state/trip_controller.dart';
 
-const _media = '/cursor/stores/bc-8ecc042f-f168-4a99-8ca3-0bbb0e1d674c/media';
+final _media = Platform.environment['CAPTURE_DIR'] ?? 'build/captures';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -111,6 +111,7 @@ Future<void> _save(WidgetTester tester, String name) async {
   debugPrint('capture: encode $name ${image.width}x${image.height}');
   final data = await tester.runAsync(() => image.toByteData(format: ui.ImageByteFormat.png)).timeout(const Duration(seconds: 15));
   final file = File('$_media/$name.png');
+  await tester.runAsync(() => file.parent.create(recursive: true));
   await tester.runAsync(() => file.writeAsBytes(data!.buffer.asUint8List(), flush: true));
   image.dispose();
   debugPrint('capture: wrote $name');

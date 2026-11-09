@@ -204,7 +204,7 @@ ThemeData buildTheme() {
       disabledBorder: field.disabledBorder,
       errorBorder: field.errorBorder,
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: AppColors.card,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),

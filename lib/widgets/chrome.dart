@@ -493,7 +493,7 @@ class MapFrame extends StatelessWidget {
                 color: AppColors.moveBg,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
-                  child: Text(note!, style: AppType.caption.copyWith(color: AppColors.offlineFg)),
+                  child: Text(note!, style: AppType.footnote.copyWith(color: AppColors.offlineFg)),
                 ),
               ),
           ],

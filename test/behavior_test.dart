@@ -122,7 +122,7 @@ void main() {
   testWidgets('태블릿은 하단 탭 없이 분할된다', (tester) async {
     await tester.runAsync(warmSampleMap);
     await _setView(tester, const Size(1024, 1366));
-    await tester.pumpWidget(const TripWeaveApp());
+    await tester.pumpWidget(TripWeaveApp(controller: TripController()));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('tab-home')), findsNothing);

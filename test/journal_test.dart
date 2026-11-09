@@ -55,11 +55,14 @@ void main() {
     expect(find.text('기록 있음'), findsWidgets);
 
     await tester.ensureVisible(find.text('11.9'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('11.9'));
     await tester.pumpAndSettle();
     expect(find.text('작성된 이야기가 없습니다.'), findsOneWidget);
     expect(tester.widget<TextField>(find.byKey(const Key('journal-story'))).controller!.text, isEmpty);
 
+    await tester.ensureVisible(find.text('11.8'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('11.8'));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byKey(const Key('journal-story'))).controller!.text, '외탄을 걸었다');
