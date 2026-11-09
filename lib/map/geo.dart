@@ -47,3 +47,20 @@ String straightLineLabel(double meters) {
   if (meters < 1000) return '${meters.round()}m · 직선 거리';
   return '${(meters / 1000).toStringAsFixed(1)}km · 직선 거리';
 }
+
+/// Walking pace used only to turn a straight-line sum into minutes.
+const straightWalkKmh = 4.5;
+
+String formatMeters(double meters) {
+  if (meters < 1000) return '${meters.round()}m';
+  return '${(meters / 1000).toStringAsFixed(1)}km';
+}
+
+int straightWalkMinutes(double meters) => (meters / (straightWalkKmh * 1000 / 60)).round();
+
+/// Honest label for a visit-order straight line. [stops] is the number of numbered pins.
+String routeEstimateLabel(double meters, int stops) {
+  if (stops < 2) return '방문 순서를 이을 장소가 2곳 미만이라 직선 거리를 합산하지 않습니다.';
+  final minutes = straightWalkMinutes(meters);
+  return '방문 $stops곳 직선 ${formatMeters(meters)} · 도보 약 $minutes분 (시속 ${straightWalkKmh}km, 도로 경로 아님)';
+}

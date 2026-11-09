@@ -9,7 +9,7 @@ import 'geo.dart';
 import 'osm_tiles.dart';
 import 'place_pins.dart';
 
-const routeEstimateNote = '실경로가 없습니다. 번호는 방문 순서이고, 이동 시간은 직선 거리 기반 추정입니다.';
+const routeEstimateNote = '점선은 방문 번호 순 직선입니다. 거리·도보 시간은 그 직선과 시속 4.5km 추정이며 도로 경로가 아닙니다.';
 
 class TripMap extends StatefulWidget {
   const TripMap({super.key, required this.pins, this.focus, this.onPinTap});
@@ -90,6 +90,9 @@ class _TripMapState extends State<TripMap> {
         final spots = _spread(anchors);
         final spotFor = {for (var index = 0; index < priority.length; index++) priority[index].id: spots[index]};
         final paintOrder = [...widget.pins]..sort((a, b) => _rank(a).compareTo(_rank(b)));
+        final route = orderedVisitPins(widget.pins);
+        final routeOffsets = [for (final pin in route) spotFor[pin.id]!];
+        final estimate = routeEstimateLabel(visitRouteMeters(widget.pins), route.length);
         return GestureDetector(
           key: const Key('trip-map'),
           onScaleStart: _onScaleStart,
@@ -99,7 +102,23 @@ class _TripMapState extends State<TripMap> {
               fit: StackFit.expand,
               children: [
                 CustomPaint(painter: _TilePainter(camera: camera, images: OsmTileStore.instance.memory), size: size),
+                CustomPaint(painter: _RoutePainter(routeOffsets), size: size),
                 for (final pin in paintOrder) _pin(pin, spotFor[pin.id]!),
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(color: const Color(0xF2FFFFFF), borderRadius: BorderRadius.circular(6)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(estimate, key: const Key('route-estimate'), style: AppType.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -185,6 +204,43 @@ class _TripMapState extends State<TripMap> {
       ),
     );
   }
+}
+
+class _RoutePainter extends CustomPainter {
+  _RoutePainter(this.points);
+
+  final List<Offset> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final paint = Paint()
+      ..color = AppColors.accent
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (var index = 1; index < points.length; index++) {
+      _dash(canvas, points[index - 1], points[index], paint);
+    }
+  }
+
+  void _dash(Canvas canvas, Offset start, Offset end, Paint paint) {
+    final delta = end - start;
+    final length = delta.distance;
+    if (length == 0) return;
+    final direction = delta / length;
+    const dash = 8.0;
+    const gap = 6.0;
+    var drawn = 0.0;
+    while (drawn < length) {
+      final stop = math.min(drawn + dash, length);
+      canvas.drawLine(start + direction * drawn, start + direction * stop, paint);
+      drawn = stop + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoutePainter oldDelegate) => oldDelegate.points != points;
 }
 
 class _TilePainter extends CustomPainter {
