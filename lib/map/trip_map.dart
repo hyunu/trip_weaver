@@ -12,11 +12,14 @@ import 'place_pins.dart';
 const routeEstimateNote = '점선은 방문 번호 순 직선입니다. 거리·도보 시간은 그 직선과 시속 4.5km 추정이며 도로 경로가 아닙니다.';
 
 class TripMap extends StatefulWidget {
-  const TripMap({super.key, required this.pins, this.focus, this.onPinTap});
+  const TripMap({super.key, required this.pins, this.focus, this.onPinTap, this.reportCenter});
 
   final List<MapPin> pins;
   final GeoPoint? focus;
   final ValueChanged<MapPin>? onPinTap;
+
+  /// Called when the user pans/zooms so pick-on-map sheets can read the map center.
+  final ValueChanged<GeoPoint>? reportCenter;
 
   @override
   State<TripMap> createState() => _TripMapState();
@@ -51,10 +54,12 @@ class _TripMapState extends State<TripMap> {
     final zoom = (_gestureZoom + math.log(details.scale) / math.ln2).clamp(3.0, 18.0);
     final delta = details.localFocalPoint - _gestureFocal;
     final base = MapCamera(center: _gestureCenter, zoom: _gestureZoom, size: const Size(1, 1));
+  final shifted = base.shiftBy(Offset(-delta.dx, -delta.dy));
     setState(() {
       _zoom = zoom;
-      _center = base.shiftBy(Offset(-delta.dx, -delta.dy));
+      _center = shifted;
     });
+    widget.reportCenter?.call(shifted);
   }
 
   void _ensureTiles(MapCamera camera) {
@@ -82,6 +87,7 @@ class _TripMapState extends State<TripMap> {
           _fitKey = fitKey;
           _center = fitted.center;
           _zoom = fitted.zoom;
+          WidgetsBinding.instance.addPostFrameCallback((_) => widget.reportCenter?.call(_center!));
         }
         final camera = MapCamera(center: _center!, zoom: _zoom!, size: size);
         _ensureTiles(camera);

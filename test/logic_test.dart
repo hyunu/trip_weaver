@@ -12,7 +12,7 @@ void main() {
     expect(candidatesForCity('서울'), isEmpty);
   });
 
-  test('확인된 도시 위치를 다른 후보로 다시 고를 수 있다', () {
+  test('확인된 도시 위치를 다른 후보로 다시 고를 수 있다', () async {
     final controller = TripController();
     final trip = controller.current!;
     final city = trip.cities.firstWhere((item) => item.id == 'city-shanghai');
@@ -21,7 +21,7 @@ void main() {
     expect(isCurrentLocation(city, candidates[0]), isTrue);
     expect(isCurrentLocation(city, candidates[1]), isFalse);
 
-    controller.startRelocate(city.id);
+    await controller.startRelocate(city.id);
     expect(controller.relocatingCityIds, contains(city.id));
     expect(controller.cityCandidates[city.id], hasLength(2));
 
@@ -35,22 +35,22 @@ void main() {
     expect(isCurrentLocation(city, candidates[1]), isTrue);
     expect(isCurrentLocation(city, candidates[0]), isFalse);
 
-    controller.startRelocate(city.id);
+    await controller.startRelocate(city.id);
     controller.pickCandidate(city.id, candidates[1]);
     expect(trip.pendingLocalEdits, edits + 1);
   });
 
-  test('다시 고르기를 취소하면 확인된 좌표가 그대로다', () {
+  test('다시 고르기를 취소하면 확인된 좌표가 그대로다', () async {
     final controller = TripController();
     final city = controller.current!.cities.firstWhere((item) => item.id == 'city-shanghai');
-    controller.startRelocate(city.id);
+    await controller.startRelocate(city.id);
     controller.cancelRelocate(city.id);
     expect(controller.relocatingCityIds, isEmpty);
     expect(controller.cityCandidates[city.id], isNull);
     expect(city.coordinateLabel, '31.2304, 121.4737');
 
     controller.offline = true;
-    controller.startRelocate(city.id);
+    await controller.startRelocate(city.id);
     expect(controller.relocatingCityIds, contains(city.id));
     expect(controller.cityCandidates[city.id], isNull);
     controller.closeCityEdit();

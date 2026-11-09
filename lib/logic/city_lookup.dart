@@ -1,6 +1,6 @@
 import '../model/models.dart';
 
-List<GeoCandidate> candidatesForCity(String name) {
+List<GeoCandidate> offlineCandidatesForCity(String name) {
   final key = name.trim().toLowerCase().replaceAll(' ', '');
   if (key.contains('상하이') || key.contains('shanghai') || key.contains('上海')) {
     return const [
@@ -15,6 +15,9 @@ List<GeoCandidate> candidatesForCity(String name) {
   }
   return const [];
 }
+
+/// Tests and legacy call sites.
+List<GeoCandidate> candidatesForCity(String name) => offlineCandidatesForCity(name);
 
 bool isCurrentLocation(City city, GeoCandidate candidate) {
   if (!city.coordinateConfirmed) return false;

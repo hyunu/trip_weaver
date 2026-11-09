@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'shell/adaptive_shell.dart';
 import 'shell/scope.dart';
+import 'logic/geocoder.dart';
 import 'state/trip_controller.dart';
 import 'state/trip_store.dart';
 import 'theme/app_theme.dart';
@@ -45,7 +46,7 @@ class _TripWeaveAppState extends State<TripWeaveApp> with WidgetsBindingObserver
     } on Object {
       store = null;
     }
-    final next = TripController(now: widget.now, store: store);
+    final next = TripController(now: widget.now, store: store, geocoder: CompositeCityGeocoder());
     await next.restore();
     if (!mounted) {
       next.dispose();

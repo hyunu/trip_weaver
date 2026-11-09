@@ -91,7 +91,7 @@ void main() {
     final store = FileTripStore(File('${directory.path}/trips.json'));
     final first = TripController(catalog: catalog, store: store);
     first.selectTrip('trip-river');
-    first.startRelocate('city-shanghai');
+    await first.startRelocate('city-shanghai');
     first.pickCandidate('city-shanghai', first.cityCandidates['city-shanghai']![1]);
     await first.persistenceSettled;
     expect(await File('${directory.path}/trips.json').readAsString(), contains('"coordinateCandidateId":"shanghai-bund"'));

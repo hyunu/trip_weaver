@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 
 import '../format.dart';
 import '../logic/city_lookup.dart';
+import '../map/geo.dart';
 import '../model/models.dart';
 import '../shell/scope.dart';
 import '../state/trip_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chrome.dart';
+import '../widgets/coordinate_pick_sheet.dart';
 
 class CityEditScreen extends StatelessWidget {
   const CityEditScreen({super.key, this.onClose});
@@ -50,15 +52,59 @@ class CityEditScreen extends StatelessWidget {
   }
 }
 
-class _CityEditor extends StatelessWidget {
+class _CityEditor extends StatefulWidget {
   const _CityEditor({required this.city});
 
   final City city;
 
   @override
+  State<_CityEditor> createState() => _CityEditorState();
+}
+
+class _CityEditorState extends State<_CityEditor> {
+  TextEditingController? _search;
+  bool _searchLinked = false;
+
+  TextEditingController get search {
+    final existing = _search;
+    if (existing != null) return existing;
+    final created = TextEditingController();
+    _search = created;
+    return created;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_searchLinked) return;
+    _searchLinked = true;
+    search.text = TripScope.of(context).citySearchQuery(widget.city.id);
+  }
+
+  @override
+  void dispose() {
+    _search?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openMapPick(TripController controller) async {
+    final city = widget.city;
+    final candidates = controller.cityCandidates[city.id];
+    GeoPoint? initial = controller.cityGeo(city);
+    if (initial == null && candidates != null && candidates.isNotEmpty) {
+      initial = geoFromLabel(candidates.first.coordinateLabel);
+    }
+    final picked = await CoordinatePickSheet.show(context, title: '${city.name} 위치 고르기', initial: initial);
+    if (picked == null || !mounted) return;
+    controller.pickMapPoint(city.id, picked);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = TripScope.of(context);
+    final city = widget.city;
     final candidates = controller.cityCandidates[city.id];
+    final locating = controller.locatingCityIds.contains(city.id);
     final relocating = controller.relocatingCityIds.contains(city.id);
     return Container(
       key: Key('city-editor-${city.id}'),
@@ -87,13 +133,26 @@ class _CityEditor extends StatelessWidget {
                 onPressed: controller.offline ? null : () => controller.startRelocate(city.id),
               )
             else ...[
+              _SearchField(
+                controller: search,
+                enabled: !controller.offline,
+                onChanged: (value) => controller.setCitySearchQuery(city.id, value),
+                onSubmitted: (value) => controller.findCandidates(city.id, query: value),
+              ),
+              const SizedBox(height: AppSpace.xs),
+              AppButton(
+                key: Key('find-candidates-${city.id}'),
+                label: locating ? '찾는 중…' : (candidates == null ? '위치 후보 찾기' : '다시 찾기'),
+                filled: candidates == null && !locating,
+                onPressed: controller.offline || locating ? null : () => controller.findCandidates(city.id),
+              ),
               AppButton(
                 key: Key('cancel-relocate-${city.id}'),
                 label: '다시 고르기 취소',
                 filled: false,
                 onPressed: () => controller.cancelRelocate(city.id),
               ),
-              ..._candidateSection(controller, candidates, relocating: true),
+              ..._candidateSection(controller, candidates, relocating: true, onMapPick: () => _openMapPick(controller)),
             ],
             if (controller.offline) ...[
               const SizedBox(height: AppSpace.xxs),
@@ -102,29 +161,49 @@ class _CityEditor extends StatelessWidget {
           ] else ...[
             _Status(confirmed: false),
             const SizedBox(height: AppSpace.sm),
+            _SearchField(
+              controller: search,
+              enabled: !controller.offline,
+              onChanged: (value) => controller.searchCityAutocomplete(city.id, value),
+              onSubmitted: (value) => controller.findCandidates(city.id, query: value),
+            ),
+            const SizedBox(height: AppSpace.xs),
             AppButton(
               key: Key('find-candidates-${city.id}'),
-              label: candidates == null ? '위치 후보 찾기' : '다시 찾기',
-              filled: candidates == null,
-              onPressed: controller.offline ? null : () => controller.findCandidates(city.id),
+              label: locating ? '찾는 중…' : (candidates == null ? '위치 후보 찾기' : '다시 찾기'),
+              filled: candidates == null && !locating,
+              onPressed: controller.offline || locating ? null : () => controller.findCandidates(city.id),
             ),
             if (controller.offline) ...[
               const SizedBox(height: AppSpace.xxs),
               const Text('오프라인이라 위치 후보를 찾지 않습니다.', style: AppType.footnote),
             ],
-            ..._candidateSection(controller, candidates, relocating: false),
+            ..._candidateSection(controller, candidates, relocating: false, onMapPick: () => _openMapPick(controller)),
           ],
         ],
       ),
     );
   }
 
-  List<Widget> _candidateSection(TripController controller, List<GeoCandidate>? candidates, {required bool relocating}) {
+  List<Widget> _candidateSection(
+    TripController controller,
+    List<GeoCandidate>? candidates, {
+    required bool relocating,
+    VoidCallback? onMapPick,
+  }) {
     if (candidates == null) return const [];
     if (candidates.isEmpty) {
       return [
         const SizedBox(height: AppSpace.xs),
-        Text('‘${city.name}’ 이름으로 찾은 위치 후보가 없습니다.', style: AppType.footnote),
+        Text('‘${widget.city.name}’ 이름으로 찾은 위치 후보가 없습니다. 철자를 확인해 보세요.', style: AppType.footnote),
+        const SizedBox(height: AppSpace.xs),
+        if (onMapPick != null && !controller.offline)
+          AppButton(
+            key: Key('map-pick-${widget.city.id}'),
+            label: '지도에서 직접 고르기',
+            filled: false,
+            onPressed: onMapPick,
+          ),
       ];
     }
     return [
@@ -132,12 +211,44 @@ class _CityEditor extends StatelessWidget {
       Text(relocating ? '고르기 전에는 지금 좌표를 그대로 둡니다.' : '고르기 전에는 좌표를 저장하지 않습니다.', style: AppType.footnote),
       for (var index = 0; index < candidates.length; index++)
         _CandidateRow(
-          key: Key('candidate-${city.id}-$index'),
+          key: Key('candidate-${widget.city.id}-$index'),
           candidate: candidates[index],
-          current: isCurrentLocation(city, candidates[index]),
-          onTap: () => controller.pickCandidate(city.id, candidates[index]),
+          current: isCurrentLocation(widget.city, candidates[index]),
+          onTap: () => controller.pickCandidate(widget.city.id, candidates[index]),
         ),
+      if (onMapPick != null && !controller.offline) ...[
+        const SizedBox(height: AppSpace.xs),
+        AppButton(
+          key: Key('map-pick-${widget.city.id}'),
+          label: '지도에서 직접 고르기',
+          filled: false,
+          onPressed: onMapPick,
+        ),
+      ],
     ];
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller, required this.enabled, required this.onChanged, required this.onSubmitted});
+
+  final TextEditingController controller;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const Key('city-search-query'),
+      controller: controller,
+      enabled: enabled,
+      style: AppType.body,
+      decoration: AppFields.decoration('도시·지역 검색 (자동완성)'),
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: TextInputAction.search,
+    );
   }
 }
 
@@ -202,7 +313,7 @@ class _CandidateRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                current ? const Icon(CupertinoIcons.checkmark_alt, size: 16, color: AppColors.accent) : const Icon(CupertinoIcons.chevron_forward, size: 16, color: AppColors.tertiary),
+                current ? const Icon(CupertinoIcons.checkmark_alt, size: 16, color: AppColors.accent) : const Icon(CupertinoIcons.chevron_forward, size: 16, color: AppColors.accent),
               ],
             ),
           ),
