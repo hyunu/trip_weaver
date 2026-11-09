@@ -92,6 +92,12 @@ class TripController extends ChangeNotifier {
   String? editingTripId;
   bool editingCity = false;
   bool offline = false;
+
+  void setOffline(bool value) {
+    if (offline == value) return;
+    offline = value;
+    notifyListeners();
+  }
   bool itineraryDeferred = false;
   String? itineraryError;
   String? itineraryNotice;

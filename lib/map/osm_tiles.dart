@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'camera.dart';
@@ -35,7 +36,16 @@ class OsmTileStore {
   static const userAgent = 'TripWeave/0.1 (https://www.openstreetmap.org/copyright)';
 
   final Map<String, ui.Image> memory = {};
+  final Set<String> failedKeys = {};
+  VoidCallback? onFetchFailure;
   Directory? _directory;
+
+  @visibleForTesting
+  void resetForTest() {
+    memory.clear();
+    failedKeys.clear();
+    onFetchFailure = null;
+  }
 
   Directory get directory => _directory ??= Directory('${Directory.systemTemp.path}/trip_weave_osm_cache')..createSync(recursive: true);
 
@@ -66,6 +76,7 @@ class OsmTileStore {
         final response = await request.close();
         if (response.statusCode != 200) {
           await response.drain<void>();
+          _noteFetchFailure(tile);
           return;
         }
         final builder = BytesBuilder(copy: false);
@@ -76,14 +87,26 @@ class OsmTileStore {
         maxAge = _maxAge(response.headers.value(HttpHeaders.cacheControlHeader));
         await file.writeAsBytes(bytes, flush: true);
         await expiry.writeAsString('${DateTime.now().add(maxAge).millisecondsSinceEpoch}');
+      } on Object {
+        _noteFetchFailure(tile);
+        return;
       } finally {
         client.close(force: true);
       }
     }
-    if (bytes.length < 32) return;
+    if (bytes.length < 32) {
+      _noteFetchFailure(tile);
+      return;
+    }
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
+    failedKeys.remove(tile.key);
     memory[tile.key] = frame.image;
+  }
+
+  void _noteFetchFailure(TileCoord tile) {
+    failedKeys.add(tile.key);
+    onFetchFailure?.call();
   }
 
   Duration _maxAge(String? header) {

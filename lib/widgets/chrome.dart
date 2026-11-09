@@ -175,6 +175,22 @@ class OfflineBanner extends StatelessWidget {
   }
 }
 
+class MapTileNotice extends StatelessWidget {
+  const MapTileNotice({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const NoticeBanner(
+      bannerKey: Key('map-tile'),
+      message: '지도 타일을 불러오지 못했습니다. 연결을 확인하세요.',
+      background: AppColors.offlineBg,
+      foreground: AppColors.offlineFg,
+      icon: CupertinoIcons.wifi_slash,
+      margin: EdgeInsets.all(AppSpace.xs),
+    );
+  }
+}
+
 class StatusBanners extends StatelessWidget {
   const StatusBanners({super.key, required this.sample, this.offline = false});
 
